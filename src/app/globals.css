@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/*
+ * Linen Watch palette: laundered off-white ground, a deep eucalyptus accent,
+ * and semantic colors kept separate from the accent.
+ */
+:root {
+  --bg: #f5f2ea;
+  --surface: #ffffff;
+  --surface-2: #ece7da;
+  --line: #dcd5c4;
+  --ink: #1e1c16;
+  --muted: #726c5c;
+  --accent: #28584f;
+  --accent-ink: #f4f8f0;
+  --accent-soft: #dceae1;
+  --good: #3d7a45;
+  --good-soft: #ddeedd;
+  --warn: #9a6419;
+  --warn-soft: #f3e6c9;
+  --danger: #a23a2f;
+  --danger-soft: #f4dfd6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181a;
+    --surface: #1e2225;
+    --surface-2: #262b2e;
+    --line: #363c3f;
+    --ink: #edeae0;
+    --muted: #9b9a8e;
+    --accent: #6fc2ae;
+    --accent-ink: #0e211d;
+    --accent-soft: #1f3833;
+    --good: #7bc48a;
+    --good-soft: #20342a;
+    --warn: #e3b15e;
+    --warn-soft: #3a2f1b;
+    --danger: #e38678;
+    --danger-soft: #3a2420;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  text-wrap: balance;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: "Queue" };
 
 const EMPTY: Record<ListingStatus, string> = {
   pending: "Nothing waiting on approval.",
+  ordering: "No orders being placed right now.",
   awaiting_checkout: "No approved buys waiting on checkout.",
   purchased: "Nothing bought yet.",
   rejected: "Nothing skipped.",
@@ -22,7 +23,9 @@ const EMPTY: Record<ListingStatus, string> = {
 
 const HINT: Record<ListingStatus, string> = {
   pending: "Matched a spec but needs a person: auto-buy is off, the source isn't trusted yet, or it would break a cap.",
-  awaiting_checkout: "Approved, but the site has no ordering API. Buy it there, then mark it here.",
+  ordering: "An order is being placed right now. Its total already counts against the weekly cap.",
+  awaiting_checkout:
+    "Approved, but the site has no ordering API. Buy it there, then mark it here. Counts against the weekly cap until it's bought, marked not bought, or expires.",
   purchased: "Bought by the agent or approved by Nick or Jake.",
   rejected: "Skipped by a person.",
   blocked: "Matched a spec, but no order could fit the per-order limits.",
@@ -85,11 +88,19 @@ export default async function QueuePage({ searchParams }: PageProps<"/queue">) {
                     <td className="px-5 py-2.5">
                       <div className="font-medium text-ink">{l.title}</div>
                       <div className="text-muted">
-                        {label(MATERIALS, l.material)} · {label(CONDITIONS, l.condition)} · seen {timeAgo(l.lastSeenAt)}
+                        {[
+                          l.material ? label(MATERIALS, l.material) : null,
+                          l.condition ? label(CONDITIONS, l.condition) : null,
+                          `seen ${timeAgo(l.lastSeenAt)}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-muted">{l.source.name}</td>
-                    <td className="tabular px-3 py-2.5 text-right font-mono">{formatCents(l.unitCents)}</td>
+                    <td className="tabular px-3 py-2.5 text-right font-mono">
+                      {l.unitCents != null ? formatCents(l.unitCents) : "—"}
+                    </td>
                     <td className="px-5 py-2.5 text-muted">{l.note}</td>
                   </tr>
                 ))}

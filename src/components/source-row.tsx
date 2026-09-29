@@ -39,7 +39,12 @@ function Switch({
   );
 }
 
-export function SourceRow({ source }: { source: Source }) {
+export function SourceRow({
+  source,
+}: {
+  /** `status` says whether scans will actually use this source, and if not, why. */
+  source: Source & { status: { active: true } | { active: false; reason: string } };
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const api = source.purchaseMethod === "api";
@@ -56,8 +61,10 @@ export function SourceRow({ source }: { source: Source }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{source.name}</span>
           <Pill tone={api ? "accent" : "neutral"}>{api ? "Orders via API" : "Manual checkout"}</Pill>
+          {source.status.active ? null : <Pill tone="warn">Off</Pill>}
         </div>
         {source.notes ? <p className="mt-1 max-w-xl text-xs text-muted">{source.notes}</p> : null}
+        {source.status.active ? null : <p className="mt-1 max-w-xl text-xs text-warn">{source.status.reason}</p>}
         {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
       </div>
       <div className="flex shrink-0 items-center gap-6">

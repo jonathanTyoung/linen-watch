@@ -27,6 +27,13 @@ const dateTime = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
+const dateOnly = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+
+/** "Sep 28" */
+export function formatDate(date: Date): string {
+  return dateOnly.format(date);
+}
+
 export function formatDateTime(date: Date): string {
   return dateTime.format(date);
 }

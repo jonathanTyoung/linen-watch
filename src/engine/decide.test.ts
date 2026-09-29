@@ -17,7 +17,9 @@ const with_ = (patch: {
   source?: Partial<DecideInput["source"]>;
   settings?: Partial<DecideInput["settings"]>;
   unitsOwned?: number;
+  unitsHeld?: number;
   weekSpendCents?: number;
+  heldCents?: number;
 }): DecideInput => ({
   ...base,
   ...patch,
@@ -35,6 +37,22 @@ describe("planOrder", () => {
 
   it("only buys what's still needed", () => {
     expect(planOrder(with_({ unitsOwned: 100 }))).toMatchObject({ lots: 1, units: 12 });
+  });
+
+  it("counts approved-but-unbought units as already on the way", () => {
+    // Target 120: 60 bought + 36 approved leaves 24, so 2 lots of 12 rather than 4.
+    expect(planOrder(with_({ unitsOwned: 60, unitsHeld: 36 }))).toMatchObject({ lots: 2, units: 24 });
+  });
+
+  it("blocks when bought and approved units already cover the target", () => {
+    expect(planOrder(with_({ unitsOwned: 100, unitsHeld: 24 }))).toEqual({
+      kind: "blocked",
+      note: "Queen flat sheets is fully stocked counting approved buys (100 bought + 24 approved but not bought yet, target 120)",
+    });
+    expect(planOrder(with_({ unitsOwned: 120 }))).toEqual({
+      kind: "blocked",
+      note: "Queen flat sheets is fully stocked (120/120)",
+    });
   });
 
   it("never buys more lots than are available", () => {
@@ -66,6 +84,20 @@ describe("planOrder", () => {
 
   it("flags when even one lot would break the weekly cap", () => {
     expect(planOrder(with_({ weekSpendCents: 39000 }))).toMatchObject({ lots: 1, overWeeklyCap: true });
+  });
+});
+
+describe("holds", () => {
+  it("shrinks the order to fit what's left after holds", () => {
+    // $400 cap, $100 spent, $100 held: $200 left fits 1 lot ($108), not 2 ($204).
+    const plan = planOrder(with_({ weekSpendCents: 10000, heldCents: 10000 }));
+    expect(plan).toMatchObject({ kind: "ok", lots: 1, overWeeklyCap: false });
+  });
+
+  it("queues instead of auto-buying when holds use up the cap", () => {
+    const d = decide(with_({ weekSpendCents: 0, heldCents: 35000 }));
+    expect(d).toMatchObject({ kind: "queue", overWeeklyCap: true });
+    expect(d.note).toMatch(/already approved but not bought yet/);
   });
 });
 
@@ -107,5 +139,12 @@ describe("approvalBlocker", () => {
 
   it("refuses when the weekly cap would break", () => {
     expect(approvalBlocker({ settings, weekSpendCents: 35000, totalCents: 10000 })).toMatch(/over the \$400\.00 cap/);
+  });
+
+  it("counts money that's approved but not bought yet against the weekly cap", () => {
+    expect(approvalBlocker({ settings, weekSpendCents: 10000, heldCents: 20000, totalCents: 10000 })).toBeNull();
+    const msg = approvalBlocker({ settings, weekSpendCents: 10000, heldCents: 25000, totalCents: 10000 });
+    expect(msg).toMatch(/\$450\.00/);
+    expect(msg).toMatch(/\$250\.00 already approved but not bought yet/);
   });
 });

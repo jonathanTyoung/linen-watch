@@ -2,7 +2,7 @@
 
 # Linen Watch
 
-Local MVP of an agent that finds white linens under J&N Cleaners' price limits and buys them within guardrails. Sources are mocked; see README.md for the full picture.
+Local MVP of an agent that finds white linens under J&N Cleaners' price limits and buys them within guardrails. Sources are mocked by default; eBay is the one real source (read-only, a person checks out). See README.md for the full picture.
 
 ## Stack
 
@@ -17,6 +17,11 @@ Next.js 16 (App Router, server actions) · React 19 · Tailwind v4 · SQLite via
 - **UI writes go through `src/app/actions.ts`**, which call engine functions and then `revalidatePath("/", "layout")`.
 - **Forms** use `useActionState` but submit via `onSubmit` + `startTransition` so fields aren't reset on validation errors.
 - **Never auto-buy from a `checkout_link` source.** Only `api` sources can place orders; everything else hands a person a checkout link.
+- **A listing with anything unknown never matches.** Real listings are free text; when a field can't be read with confidence it's null with a `parseIssues` reason, never a guess. Unknown shipping is not free shipping.
+- **Never store eBay seller names or ids.** The app opted out of eBay's account-deletion notifications on the basis that it keeps item data only.
+- **Title-reader words live in `src/engine/sources/ebay/vocabulary.ts`**, each rule with an `example` that's run as a test. `parse.ts` is logic only; don't put words in it.
+- **Tunables are Settings fields**, added by migration. The exception is `EBAY_DATA_MAX_AGE_HOURS`: a compliance rule, so a constant.
+- **No test touches the network.** eBay tests run against `src/engine/sources/ebay/__fixtures__/`.
 - Copy is written for Nick and Jake: plain words, say what happened and why.
 
 ## Verify before calling anything done

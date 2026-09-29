@@ -13,6 +13,10 @@ import {
   type Spec,
 } from "@/db/schema";
 import { orderCost } from "@/engine/decide";
+import { callsOn, limitReachedMessage } from "@/engine/api-calls";
+import { heldCents } from "@/engine/holds";
+import { EBAY_CALLS_PER_SCAN, EBAY_DAILY_CALL_LIMIT, EBAY_MIN_SCAN_SECONDS, EBAY_SUGGESTED_SCAN_SECONDS } from "@/engine/sources/ebay/config";
+import { EBAY_SOURCE_ID, ebayActive, sourceStatus } from "@/engine/sources/selection";
 import {
   getSettings,
   recentEvents,
@@ -33,18 +37,23 @@ import { startOfWeek } from "@/lib/time";
 export interface ListingView extends Listing {
   source: Source;
   spec: Spec | null;
-  unitCents: number;
+  /** Null when the lot size or shipping cost is unknown. */
+  unitCents: number | null;
   proposal: { lots: number; units: number; totalCents: number } | null;
 }
 
 function toView(rows: Listing[], sourceMap: Map<string, Source>, specMap: Map<number, Spec>): ListingView[] {
-  return rows.map((l) => ({
-    ...l,
-    source: sourceMap.get(l.sourceId)!,
-    spec: l.matchedSpecId ? (specMap.get(l.matchedSpecId) ?? null) : null,
-    unitCents: landedUnitCents(l.lotPriceCents, l.lotSize, l.shippingCents),
-    proposal: l.proposedLots ? orderCost(l, l.proposedLots) : null,
-  }));
+  return rows.map((l) => {
+    const { lotSize, shippingCents } = l;
+    const priced = lotSize != null && shippingCents != null ? { ...l, lotSize, shippingCents } : null;
+    return {
+      ...l,
+      source: sourceMap.get(l.sourceId)!,
+      spec: l.matchedSpecId ? (specMap.get(l.matchedSpecId) ?? null) : null,
+      unitCents: priced ? landedUnitCents(priced.lotPriceCents, priced.lotSize, priced.shippingCents) : null,
+      proposal: priced && l.proposedLots ? orderCost(priced, l.proposedLots) : null,
+    };
+  });
 }
 
 function lookups() {
@@ -101,6 +110,7 @@ export async function loadDashboard() {
     workerAlive,
     seen24h,
     weekSpendCents: weekSpendCents(db, now),
+    heldCents: heldCents(db),
     weekUnits: unitsBoughtSince(db, weekStart),
     stock,
     events: recentEvents(db, 14),
@@ -191,8 +201,26 @@ export async function loadOrders() {
 export async function loadSettings() {
   await connection();
   const db = getDb();
+  const settings = getSettings(db);
+  const callsToday = callsOn(db, EBAY_SOURCE_ID, new Date()).calls;
   return {
-    settings: getSettings(db),
-    sources: db.select().from(sources).all(),
+    settings,
+    sources: db
+      .select()
+      .from(sources)
+      .all()
+      .map((s) => ({ ...s, status: sourceStatus(s.id) })),
+    ebay: {
+      /** True when scans call eBay. */
+      active: ebayActive(),
+      minScanSeconds: EBAY_MIN_SCAN_SECONDS,
+      suggestedScanSeconds: EBAY_SUGGESTED_SCAN_SECONDS,
+      callsPerScan: EBAY_CALLS_PER_SCAN,
+      /** What eBay itself allows. Our own budget should stay under it. */
+      ebayCallLimit: EBAY_DAILY_CALL_LIMIT,
+      callsToday,
+      /** Set once today's budget is used up. */
+      stopped: callsToday >= settings.ebayDailyCallBudget ? limitReachedMessage("eBay", settings.ebayDailyCallBudget) : null,
+    },
   };
 }

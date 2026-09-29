@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
+import type { ListingCaution, ListingIssue } from "@/lib/catalog";
 import {
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -67,20 +69,36 @@ export const listings = sqliteTable(
     externalId: text("external_id").notNull(),
     title: text("title").notNull(),
     url: text("url").notNull(),
-    category: text("category").notNull(),
+    /**
+     * What the item is. Null means we couldn't tell (real listings are
+     * described by a free-text title). A listing with anything unknown never
+     * matches a spec; `parseIssues` says what was unclear.
+     */
+    category: text("category"),
     size: text("size"),
-    color: text("color").notNull(),
-    material: text("material").notNull(),
+    color: text("color"),
+    material: text("material"),
     threadCount: integer("thread_count"),
-    condition: text("condition").notNull(),
+    condition: text("condition"),
     /** Price for one lot. */
     lotPriceCents: integer("lot_price_cents").notNull(),
-    /** Units in one lot (a case of 12 sheets = 12). */
-    lotSize: integer("lot_size").notNull(),
+    /** Units in one lot (a case of 12 sheets = 12). Null = a multi-pack of unknown count. */
+    lotSize: integer("lot_size"),
     lotsAvailable: integer("lots_available").notNull(),
-    shippingCents: integer("shipping_cents").notNull().default(0),
+    /** Null = the source didn't say. Never treated as free shipping. */
+    shippingCents: integer("shipping_cents"),
+    /** Plain-words reasons the listing couldn't be read with confidence. */
+    parseIssues: text("parse_issues", { mode: "json" }).$type<ListingIssue[]>(),
     /**
-     * unmatched | pending | awaiting_checkout | purchased | rejected | blocked | expired
+     * Things a person should see before approving. Unlike parseIssues these
+     * don't stop a match ("fiber not stated").
+     */
+    cautions: text("cautions", { mode: "json" }).$type<ListingCaution[]>(),
+    /**
+     * unmatched | pending | ordering | awaiting_checkout | purchased | rejected | blocked | expired
+     *
+     * `ordering` is a claim: someone (or the agent) is placing the order right
+     * now. It and `awaiting_checkout` hold money against the weekly cap.
      */
     status: text("status").notNull(),
     matchedSpecId: integer("matched_spec_id").references(() => specs.id),
@@ -90,6 +108,11 @@ export const listings = sqliteTable(
     note: text("note"),
     decidedBy: text("decided_by"), // nick | jake | agent
     decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
+    /**
+     * Set when an approved buy expired before anyone marked it bought. The
+     * person may still have bought it, so "I bought it" stays available.
+     */
+    checkoutExpiredAt: integer("checkout_expired_at", { mode: "timestamp_ms" }),
     firstSeenAt: integer("first_seen_at", { mode: "timestamp_ms" }).notNull(),
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -132,11 +155,48 @@ export const settings = sqliteTable("settings", {
   weeklyCapCents: integer("weekly_cap_cents").notNull(),
   perOrderCapCents: integer("per_order_cap_cents").notNull(),
   pendingExpiryMinutes: integer("pending_expiry_minutes").notNull(),
+  /** How long an approved buy can wait on checkout before its hold on the weekly cap is released. */
+  checkoutExpiryHours: integer("checkout_expiry_hours").notNull().default(24),
   scanIntervalSeconds: integer("scan_interval_seconds").notNull(),
   notifyPhone: text("notify_phone"),
+  /** Where orders ship. Real sources use it to quote shipping. */
+  shipToZip: text("ship_to_zip").notNull().default("37203"),
+  /** Hard stop on calls to eBay per day (Central time), across the worker and "Scan now". */
+  ebayDailyCallBudget: integer("ebay_daily_call_budget").notNull().default(4000),
+  /** A skipped listing isn't queued again for this many days. */
+  skipSuppressionDays: integer("skip_suppression_days").notNull().default(30),
   /** Crude cross-process lock so the worker and the "Scan now" button never overlap. */
   scanLockUntil: integer("scan_lock_until", { mode: "timestamp_ms" }),
 });
+
+/**
+ * Listings someone skipped, so a scan doesn't put them back in the queue
+ * after the listing row itself has been cleaned up. Deliberately just the
+ * source's item id and when: no title, price or anything else from the source.
+ */
+export const skippedItems = sqliteTable(
+  "skipped_items",
+  {
+    sourceId: text("source_id").notNull(),
+    externalId: text("external_id").notNull(),
+    skippedAt: integer("skipped_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.sourceId, t.externalId] })],
+);
+
+/** Calls made to an outside API, per day, so a daily budget holds across processes. */
+export const apiCalls = sqliteTable(
+  "api_calls",
+  {
+    api: text("api").notNull(), // ebay
+    /** Calendar day in Central time, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    calls: integer("calls").notNull().default(0),
+    /** When the day's budget was first hit. Set once, so it's reported once. */
+    limitReachedAt: integer("limit_reached_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [primaryKey({ columns: [t.api, t.day] })],
+);
 
 export const scanRuns = sqliteTable("scan_runs", {
   id: integer("id").primaryKey({ autoIncrement: true }),

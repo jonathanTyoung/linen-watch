@@ -1,15 +1,15 @@
 import { desc, eq, gte, sql } from "drizzle-orm";
-import type { DB } from "@/db/client";
+import type { Queryable } from "@/db/client";
 import { events, orders, settings, type Settings } from "@/db/schema";
 import { startOfWeek } from "@/lib/time";
 
-export function getSettings(db: DB): Settings {
+export function getSettings(db: Queryable): Settings {
   const row = db.select().from(settings).where(eq(settings.id, 1)).get();
   if (!row) throw new Error("Settings row missing. Run `npm run db:reset`.");
   return row;
 }
 
-export function weekSpendCents(db: DB, now = new Date()): number {
+export function weekSpendCents(db: Queryable, now = new Date()): number {
   const row = db
     .select({ total: sql<number>`coalesce(sum(${orders.totalCents}), 0)` })
     .from(orders)
@@ -19,7 +19,7 @@ export function weekSpendCents(db: DB, now = new Date()): number {
 }
 
 /** Units bought so far, per spec id. */
-export function unitsOwnedBySpec(db: DB): Map<number, number> {
+export function unitsOwnedBySpec(db: Queryable): Map<number, number> {
   const rows = db
     .select({ specId: orders.specId, units: sql<number>`sum(${orders.units})` })
     .from(orders)
@@ -28,7 +28,7 @@ export function unitsOwnedBySpec(db: DB): Map<number, number> {
   return new Map(rows.map((r) => [r.specId, r.units]));
 }
 
-export function unitsBoughtSince(db: DB, since: Date): number {
+export function unitsBoughtSince(db: Queryable, since: Date): number {
   const row = db
     .select({ units: sql<number>`coalesce(sum(${orders.units}), 0)` })
     .from(orders)
@@ -38,7 +38,7 @@ export function unitsBoughtSince(db: DB, since: Date): number {
 }
 
 export function logEvent(
-  db: DB,
+  db: Queryable,
   e: {
     type: string;
     message: string;
@@ -58,6 +58,6 @@ export function logEvent(
     .run();
 }
 
-export function recentEvents(db: DB, limit = 20) {
+export function recentEvents(db: Queryable, limit = 20) {
   return db.select().from(events).orderBy(desc(events.createdAt), desc(events.id)).limit(limit).all();
 }

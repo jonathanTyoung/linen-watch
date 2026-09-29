@@ -11,7 +11,9 @@ import { timeAgo } from "@/lib/time";
 export default async function DashboardPage() {
   const d = await loadDashboard();
   const { settings } = d;
-  const capPct = settings.weeklyCapCents ? d.weekSpendCents / settings.weeklyCapCents : 0;
+  // Approved-but-not-bought money uses up the cap just like spend does.
+  const committedCents = d.weekSpendCents + d.heldCents;
+  const capPct = settings.weeklyCapCents ? committedCents / settings.weeklyCapCents : 0;
   const pendingCount = d.needsCall.filter((l) => l.status === "pending").length;
   const checkoutCount = d.needsCall.length - pendingCount;
 
@@ -63,7 +65,10 @@ export default async function DashboardPage() {
             {formatCentsWhole(d.weekSpendCents)}
             <span className="text-base font-normal text-muted"> / {formatCentsWhole(settings.weeklyCapCents)}</span>
           </span>
-          <Progress value={d.weekSpendCents} max={settings.weeklyCapCents} tone={capPct > 0.85 ? "warn" : "accent"} />
+          <Progress value={committedCents} max={settings.weeklyCapCents} tone={capPct > 0.85 ? "warn" : "accent"} />
+          {d.heldCents > 0 ? (
+            <span className="text-xs text-muted">+ {formatCents(d.heldCents)} approved, not bought yet</span>
+          ) : null}
         </div>
         <Stat label="Listings checked" value={d.seen24h} sub="last 24 hours" />
       </div>

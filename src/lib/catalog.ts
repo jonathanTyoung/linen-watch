@@ -57,8 +57,28 @@ export const COLORS = {
 } as const;
 export type Color = keyof typeof COLORS;
 
+/**
+ * Something about a listing we couldn't read with confidence, and why, in
+ * plain words. `field` is what it leaves unknown; "listing" is for problems
+ * with the listing as a whole.
+ */
+export interface ListingIssue {
+  field: "category" | "size" | "color" | "material" | "condition" | "lotSize" | "shipping" | "listing";
+  reason: string;
+}
+
+/**
+ * Something a person should see before approving a listing. Unlike an issue,
+ * it doesn't stop the listing from matching.
+ */
+export interface ListingCaution {
+  label: string;
+  detail: string;
+}
+
 export const LISTING_STATUSES = {
   pending: "Needs approval",
+  ordering: "Ordering",
   awaiting_checkout: "Awaiting checkout",
   purchased: "Purchased",
   rejected: "Rejected",

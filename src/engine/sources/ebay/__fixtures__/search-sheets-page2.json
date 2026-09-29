@@ -1,0 +1,212 @@
+{
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=white+queen+flat+sheet&category_ids=20460&limit=200&offset=200",
+  "total": 16,
+  "limit": 200,
+  "offset": 200,
+  "itemSummaries": [
+    {
+      "itemId": "v1|285600000102|0",
+      "title": "White Queen Flat Sheet Percale 300TC Hotel Quality",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture014/s-l225.jpg"
+      },
+      "price": {
+        "value": "8.49",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000102%7C0",
+      "seller": {
+        "username": "fixture_seller_14",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1214
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture014/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000102",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000102",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000201|0",
+      "title": "White Queen Flat Sheet Sateen 400 Thread Count 2 Pack",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture015/s-l225.jpg"
+      },
+      "price": {
+        "value": "17.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000201%7C0",
+      "seller": {
+        "username": "fixture_seller_15",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1215
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture015/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000201",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000201",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000202|0",
+      "title": "Gray/White Striped Queen Flat Sheet Percale",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture016/s-l225.jpg"
+      },
+      "price": {
+        "value": "8.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000202%7C0",
+      "seller": {
+        "username": "fixture_seller_16",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1216
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture016/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000202",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000202",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    }
+  ]
+}

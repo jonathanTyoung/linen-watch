@@ -1,0 +1,6 @@
+{
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=white+king+flat+sheet&limit=200&offset=0",
+  "total": 0,
+  "limit": 200,
+  "offset": 0
+}

@@ -8,7 +8,7 @@ import { loadSettings } from "@/data/loaders";
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const { settings, sources } = await loadSettings();
+  const { settings, sources, ebay } = await loadSettings();
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,7 +22,7 @@ export default async function SettingsPage() {
           title="Buying rules"
           hint="Checked on every purchase, whether the agent makes it or a person approves it."
         />
-        <SettingsForm settings={settings} />
+        <SettingsForm settings={settings} ebay={ebay} />
       </Card>
 
       <Card>

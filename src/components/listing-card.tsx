@@ -2,6 +2,7 @@ import type { ListingView } from "@/data/loaders";
 import { CONDITIONS, LISTING_STATUSES, MATERIALS, actorLabel, label, type ListingStatus } from "@/lib/catalog";
 import { formatCents } from "@/lib/money";
 import { timeAgo } from "@/lib/time";
+import { EBAY_SOURCE_ID } from "@/engine/sources/selection";
 import { ListingActions } from "./listing-actions";
 import { Pill, cx } from "./ui";
 
@@ -21,7 +22,8 @@ export function StatusPill({ status }: { status: string }) {
 }
 
 export function ListingCard({ item, compact = false }: { item: ListingView; compact?: boolean }) {
-  const underBy = item.spec ? item.spec.maxUnitPriceCents - item.unitCents : null;
+  const underBy = item.spec && item.unitCents != null ? item.spec.maxUnitPriceCents - item.unitCents : null;
+  const onEbay = item.source.id === EBAY_SOURCE_ID;
   const approveLabel =
     item.source.purchaseMethod === "api"
       ? `Approve & order${item.proposal ? ` · ${formatCents(item.proposal.totalCents)}` : ""}`
@@ -51,7 +53,7 @@ export function ListingCard({ item, compact = false }: { item: ListingView; comp
         <div>
           <dt className="text-muted">Landed / unit</dt>
           <dd className="tabular font-mono text-sm font-semibold">
-            {formatCents(item.unitCents)}
+            {item.unitCents != null ? formatCents(item.unitCents) : "—"}
             {underBy != null && underBy >= 0 ? (
               <span className="ml-1 text-[11px] font-medium text-good">−{formatCents(underBy)}</span>
             ) : null}
@@ -60,13 +62,16 @@ export function ListingCard({ item, compact = false }: { item: ListingView; comp
         <div>
           <dt className="text-muted">Lot</dt>
           <dd className="tabular font-mono">
-            {item.lotSize} × {item.lotsAvailable} avail
+            {item.lotSize ?? "?"} × {item.lotsAvailable} avail
           </dd>
+          {/* eBay's search doesn't say how many the seller has, so we plan for one lot. */}
+          {onEbay ? <dd className="text-[11px] text-muted">More may be available on eBay</dd> : null}
         </div>
         <div>
           <dt className="text-muted">Lot price + ship</dt>
           <dd className="tabular font-mono">
-            {formatCents(item.lotPriceCents)} + {formatCents(item.shippingCents)}
+            {formatCents(item.lotPriceCents)} +{" "}
+            {item.shippingCents != null ? formatCents(item.shippingCents) : "shipping not listed"}
           </dd>
         </div>
         <div>
@@ -79,9 +84,9 @@ export function ListingCard({ item, compact = false }: { item: ListingView; comp
 
       {!compact ? (
         <div className="flex flex-wrap gap-1.5">
-          <Pill>{label(MATERIALS, item.material)}</Pill>
+          {item.material ? <Pill>{label(MATERIALS, item.material)}</Pill> : null}
           {item.threadCount ? <Pill>{item.threadCount} TC</Pill> : null}
-          <Pill>{label(CONDITIONS, item.condition)}</Pill>
+          {item.condition ? <Pill>{label(CONDITIONS, item.condition)}</Pill> : null}
           <Pill>{item.source.purchaseMethod === "api" ? "Orders via API" : "Manual checkout"}</Pill>
         </div>
       ) : null}

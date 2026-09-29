@@ -10,6 +10,9 @@ import {
 } from "@/lib/catalog";
 import type { FetchContext, RawListing, SourceAdapter } from "./types";
 
+/** Mock listings are generated, so every field is known. */
+type MockListing = RawListing & { category: Category; lotSize: number; shippingCents: number };
+
 /**
  * Mock sources. Each one has a fixed pool of listing ids, and a listing's
  * attributes are derived deterministically from its id, so the same listing
@@ -243,7 +246,15 @@ const SIZE_WEIGHT: Partial<Record<Size, number>> = {
   king_pillow: 1,
 };
 
-function titleFor(l: Omit<RawListing, "title" | "url" | "externalId">): string {
+function titleFor(l: {
+  category: Category;
+  size: Size | null;
+  color: Color;
+  material: Material;
+  threadCount: number | null;
+  condition: Condition;
+  lotSize: number;
+}): string {
   const color = l.color[0].toUpperCase() + l.color.slice(1);
   const size = l.size ? `${SIZES[l.size]} ` : "";
   const material = TITLE_MATERIAL[l.material];
@@ -260,7 +271,7 @@ function titleFor(l: Omit<RawListing, "title" | "url" | "externalId">): string {
 }
 
 /** The fixed attributes of listing `n` at `profile`. Same inputs, same listing. */
-export function listingFromPool(profile: Profile, n: number, now: Date): RawListing {
+export function listingFromPool(profile: Profile, n: number, now: Date): MockListing {
   const externalId = `${profile.id.replace("mock-", "")}-${String(n).padStart(4, "0")}`;
   const rng = seeded(hash(externalId));
 

@@ -88,11 +88,19 @@ export default async function QueuePage({ searchParams }: PageProps<"/queue">) {
                     <td className="px-5 py-2.5">
                       <div className="font-medium text-ink">{l.title}</div>
                       <div className="text-muted">
-                        {label(MATERIALS, l.material)} · {label(CONDITIONS, l.condition)} · seen {timeAgo(l.lastSeenAt)}
+                        {[
+                          l.material ? label(MATERIALS, l.material) : null,
+                          l.condition ? label(CONDITIONS, l.condition) : null,
+                          `seen ${timeAgo(l.lastSeenAt)}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-muted">{l.source.name}</td>
-                    <td className="tabular px-3 py-2.5 text-right font-mono">{formatCents(l.unitCents)}</td>
+                    <td className="tabular px-3 py-2.5 text-right font-mono">
+                      {l.unitCents != null ? formatCents(l.unitCents) : "—"}
+                    </td>
                     <td className="px-5 py-2.5 text-muted">{l.note}</td>
                   </tr>
                 ))}

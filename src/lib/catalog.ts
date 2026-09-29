@@ -57,6 +57,16 @@ export const COLORS = {
 } as const;
 export type Color = keyof typeof COLORS;
 
+/**
+ * Something about a listing we couldn't read with confidence, and why, in
+ * plain words. `field` is what it leaves unknown; "listing" is for problems
+ * with the listing as a whole.
+ */
+export interface ListingIssue {
+  field: "category" | "size" | "color" | "material" | "condition" | "lotSize" | "shipping" | "listing";
+  reason: string;
+}
+
 export const LISTING_STATUSES = {
   pending: "Needs approval",
   ordering: "Ordering",

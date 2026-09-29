@@ -7,8 +7,10 @@
 import fs from "node:fs";
 import { dbPath, getDb } from "@/db/client";
 import { runScan } from "@/engine/scan";
+import { loadEnvFiles } from "./env";
 
 async function main() {
+  loadEnvFiles();
   const file = dbPath();
   for (const f of [file, `${file}-wal`, `${file}-shm`]) {
     if (fs.existsSync(f)) fs.rmSync(f);

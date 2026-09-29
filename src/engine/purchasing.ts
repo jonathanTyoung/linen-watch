@@ -5,6 +5,7 @@ import { actorLabel, type Person } from "@/lib/catalog";
 import { formatCents } from "@/lib/money";
 import { approvalBlocker, heldNote, orderCost, planOrder, type OrderSize } from "./decide";
 import { heldCents, interruptedNote, releaseStaleHolds, unitsHeldBySpec } from "./holds";
+import { isKnown } from "./match";
 import { getSettings, logEvent, unitsOwnedBySpec, weekSpendCents } from "./queries";
 import { getAdapter, type OrderResult } from "./sources";
 
@@ -14,6 +15,7 @@ export type ActionResult =
   | { ok: false; message: string };
 
 const HANDLED = "Someone already handled this listing.";
+const INCOMPLETE = "This listing is missing its lot size or shipping cost, so an order can't be priced.";
 
 function load(db: Queryable, listingId: number) {
   const listing = db.select().from(listings).where(eq(listings.id, listingId)).get();
@@ -28,7 +30,7 @@ function load(db: Queryable, listingId: number) {
 
 type Claim =
   | { ok: false; message: string }
-  | { ok: true; listing: Listing; source: Source; spec: Spec; plan: OrderSize; manual: boolean };
+  | { ok: true; listing: Listing; source: Source; spec: Spec; plan: OrderSize & { kind: "ok" }; manual: boolean };
 
 /**
  * A person approves a queued listing. The order is re-sized and every
@@ -57,6 +59,7 @@ export async function approveListing(
     if (!loaded) return { ok: false, message: "That listing no longer exists." };
     const { listing, source, spec } = loaded;
     if (listing.status !== "pending") return { ok: false, message: HANDLED };
+    if (!isKnown(listing)) return { ok: false, message: INCOMPLETE };
 
     const settings = getSettings(tx);
     const weekSpend = weekSpendCents(tx, now);
@@ -277,6 +280,7 @@ export function confirmCheckout(
     if (listing.status !== "awaiting_checkout" && !late) {
       return { ok: false, message: "This listing isn't waiting on checkout." };
     }
+    if (!isKnown(listing)) return { ok: false, message: INCOMPLETE };
     const size = orderCost(listing, listing.proposedLots ?? 1);
     const who = actorLabel(actor);
 

@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { ListingIssue } from "@/lib/catalog";
 import {
   integer,
   sqliteTable,
@@ -67,18 +68,26 @@ export const listings = sqliteTable(
     externalId: text("external_id").notNull(),
     title: text("title").notNull(),
     url: text("url").notNull(),
-    category: text("category").notNull(),
+    /**
+     * What the item is. Null means we couldn't tell (real listings are
+     * described by a free-text title). A listing with anything unknown never
+     * matches a spec; `parseIssues` says what was unclear.
+     */
+    category: text("category"),
     size: text("size"),
-    color: text("color").notNull(),
-    material: text("material").notNull(),
+    color: text("color"),
+    material: text("material"),
     threadCount: integer("thread_count"),
-    condition: text("condition").notNull(),
+    condition: text("condition"),
     /** Price for one lot. */
     lotPriceCents: integer("lot_price_cents").notNull(),
-    /** Units in one lot (a case of 12 sheets = 12). */
-    lotSize: integer("lot_size").notNull(),
+    /** Units in one lot (a case of 12 sheets = 12). Null = a multi-pack of unknown count. */
+    lotSize: integer("lot_size"),
     lotsAvailable: integer("lots_available").notNull(),
-    shippingCents: integer("shipping_cents").notNull().default(0),
+    /** Null = the source didn't say. Never treated as free shipping. */
+    shippingCents: integer("shipping_cents"),
+    /** Plain-words reasons the listing couldn't be read with confidence. */
+    parseIssues: text("parse_issues", { mode: "json" }).$type<ListingIssue[]>(),
     /**
      * unmatched | pending | ordering | awaiting_checkout | purchased | rejected | blocked | expired
      *
@@ -144,6 +153,8 @@ export const settings = sqliteTable("settings", {
   checkoutExpiryHours: integer("checkout_expiry_hours").notNull().default(24),
   scanIntervalSeconds: integer("scan_interval_seconds").notNull(),
   notifyPhone: text("notify_phone"),
+  /** Where orders ship. Real sources use it to quote shipping. */
+  shipToZip: text("ship_to_zip").notNull().default("37203"),
   /** Crude cross-process lock so the worker and the "Scan now" button never overlap. */
   scanLockUntil: integer("scan_lock_until", { mode: "timestamp_ms" }),
 });

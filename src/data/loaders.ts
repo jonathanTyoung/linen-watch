@@ -14,6 +14,8 @@ import {
 } from "@/db/schema";
 import { orderCost } from "@/engine/decide";
 import { heldCents } from "@/engine/holds";
+import { EBAY_CALLS_PER_SCAN, EBAY_DAILY_CALL_LIMIT, EBAY_MIN_SCAN_SECONDS, EBAY_SUGGESTED_SCAN_SECONDS } from "@/engine/sources/ebay/config";
+import { ebayActive, sourceStatus } from "@/engine/sources/selection";
 import {
   getSettings,
   recentEvents,
@@ -34,18 +36,23 @@ import { startOfWeek } from "@/lib/time";
 export interface ListingView extends Listing {
   source: Source;
   spec: Spec | null;
-  unitCents: number;
+  /** Null when the lot size or shipping cost is unknown. */
+  unitCents: number | null;
   proposal: { lots: number; units: number; totalCents: number } | null;
 }
 
 function toView(rows: Listing[], sourceMap: Map<string, Source>, specMap: Map<number, Spec>): ListingView[] {
-  return rows.map((l) => ({
-    ...l,
-    source: sourceMap.get(l.sourceId)!,
-    spec: l.matchedSpecId ? (specMap.get(l.matchedSpecId) ?? null) : null,
-    unitCents: landedUnitCents(l.lotPriceCents, l.lotSize, l.shippingCents),
-    proposal: l.proposedLots ? orderCost(l, l.proposedLots) : null,
-  }));
+  return rows.map((l) => {
+    const { lotSize, shippingCents } = l;
+    const priced = lotSize != null && shippingCents != null ? { ...l, lotSize, shippingCents } : null;
+    return {
+      ...l,
+      source: sourceMap.get(l.sourceId)!,
+      spec: l.matchedSpecId ? (specMap.get(l.matchedSpecId) ?? null) : null,
+      unitCents: priced ? landedUnitCents(priced.lotPriceCents, priced.lotSize, priced.shippingCents) : null,
+      proposal: priced && l.proposedLots ? orderCost(priced, l.proposedLots) : null,
+    };
+  });
 }
 
 function lookups() {
@@ -195,6 +202,19 @@ export async function loadSettings() {
   const db = getDb();
   return {
     settings: getSettings(db),
-    sources: db.select().from(sources).all(),
+    sources: db
+      .select()
+      .from(sources)
+      .all()
+      .map((s) => ({ ...s, status: sourceStatus(s.id) })),
+    /** Set when scans call eBay, which only allows so many calls a day. */
+    ebay: ebayActive()
+      ? {
+          minScanSeconds: EBAY_MIN_SCAN_SECONDS,
+          suggestedScanSeconds: EBAY_SUGGESTED_SCAN_SECONDS,
+          callsPerScan: EBAY_CALLS_PER_SCAN,
+          dailyCallLimit: EBAY_DAILY_CALL_LIMIT,
+        }
+      : null,
   };
 }

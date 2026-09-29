@@ -8,6 +8,9 @@
 import { getDb } from "@/db/client";
 import { getSettings } from "@/engine/queries";
 import { runScan } from "@/engine/scan";
+import { EBAY_MIN_SCAN_SECONDS, EBAY_SUGGESTED_SCAN_SECONDS } from "@/engine/sources/ebay/config";
+import { EBAY_SOURCE_ID, ebayActive, sourceSelection, sourceStatus } from "@/engine/sources/selection";
+import { loadEnvFiles } from "./env";
 
 const once = process.argv.includes("--once");
 let stopping = false;
@@ -23,8 +26,19 @@ function stamp(): string {
 }
 
 async function main() {
+  loadEnvFiles();
   const db = getDb();
-  console.log(`[${stamp()}] Linen Watch worker started${once ? " (single scan)" : ""}`);
+  console.log(`[${stamp()}] Linen Watch worker started${once ? " (single scan)" : ""}, sources: ${sourceSelection()}`);
+
+  const ebay = sourceStatus(EBAY_SOURCE_ID);
+  if (!ebay.active && sourceSelection() !== "mock") console.log(`[${stamp()}] ${ebay.reason}`);
+  const interval = getSettings(db).scanIntervalSeconds;
+  if (ebayActive() && !once && interval < EBAY_MIN_SCAN_SECONDS) {
+    console.log(
+      `[${stamp()}] Warning: scanning every ${interval}s is too fast for eBay's daily call limit. ` +
+        `Set "Scan every" in Settings to ${EBAY_MIN_SCAN_SECONDS} or more (${EBAY_SUGGESTED_SCAN_SECONDS} is a good setting).`,
+    );
+  }
 
   while (!stopping) {
     const result = await runScan(db, { trigger: "worker" });
@@ -34,8 +48,10 @@ async function main() {
       console.log(
         `[${stamp()}] scan #${result.runId}: ${result.listingsSeen} seen, ${result.matched} matched, ` +
           `${result.autoBought} bought, ${result.queued} queued, ${result.blocked} blocked, ${result.expired} expired` +
+          (result.removed ? `, ${result.removed} old cleared` : "") +
           (result.errors.length ? `, ${result.errors.length} errors` : ""),
       );
+      for (const e of result.errors) console.log(`[${stamp()}]   ! ${e}`);
     }
     if (once) break;
 

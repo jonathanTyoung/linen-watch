@@ -1,0 +1,881 @@
+{
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=white+queen+flat+sheet&category_ids=20460&limit=200&offset=0",
+  "total": 16,
+  "limit": 200,
+  "offset": 0,
+  "itemSummaries": [
+    {
+      "itemId": "v1|285600000101|0",
+      "title": "Lot of 12 White Queen Flat Sheets T-250 Percale Hotel Linen New",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture001/s-l225.jpg"
+      },
+      "price": {
+        "value": "96.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000101%7C0",
+      "seller": {
+        "username": "fixture_seller_01",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1201
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture001/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000101",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000101",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "12.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000102|0",
+      "title": "White Queen Flat Sheet Percale 300TC Hotel Quality",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture002/s-l225.jpg"
+      },
+      "price": {
+        "value": "8.49",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000102%7C0",
+      "seller": {
+        "username": "fixture_seller_02",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1202
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture002/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000102",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000102",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000103|0",
+      "title": "Queen Sheet Set 4 Piece White 1800 Series Microfiber Deep Pocket",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture003/s-l225.jpg"
+      },
+      "price": {
+        "value": "24.99",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000103%7C0",
+      "seller": {
+        "username": "fixture_seller_03",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1203
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture003/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000103",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000103",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000104|0",
+      "title": "6 White Hotel Flat Sheets Queen 90x110 T250 Percale 60% Cotton 40% Poly",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture004/s-l225.jpg"
+      },
+      "price": {
+        "value": "42.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000104%7C0",
+      "seller": {
+        "username": "fixture_seller_04",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1204
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture004/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000104",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000104",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "9.95",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000105|0",
+      "title": "White Queen Flat Sheet Percale 400TC 100% Cotton 4 Pack",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture005/s-l225.jpg"
+      },
+      "price": {
+        "value": "30.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000105%7C0",
+      "seller": {
+        "username": "fixture_seller_05",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1205
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture005/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000105",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000105",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "CALCULATED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000106|0",
+      "title": "White Flat Sheet Queen Percale 300TC - Choose Size & Color",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture006/s-l225.jpg"
+      },
+      "price": {
+        "value": "11.99",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000106%7C0",
+      "seller": {
+        "username": "fixture_seller_06",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1206
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture006/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000106",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000106",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "4.99",
+            "currency": "USD"
+          }
+        }
+      ],
+      "itemGroupHref": "https://api.ebay.com/buy/browse/v1/item/get_items_by_item_group?item_group_id=285600000106",
+      "itemGroupType": "SELLER_DEFINED_VARIATIONS"
+    },
+    {
+      "itemId": "v1|285600000107|0",
+      "title": "White Queen Flat Sheet Percale 300TC New Without Package",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture007/s-l225.jpg"
+      },
+      "price": {
+        "value": "7.25",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000107%7C0",
+      "seller": {
+        "username": "fixture_seller_07",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1207
+      },
+      "condition": "New other (see details)",
+      "conditionId": "1500",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture007/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000107",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000107",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000108|0",
+      "title": "Hotel White Queen Flat Sheets Percale T200 Lot of 24 Used Good Condition",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture008/s-l225.jpg"
+      },
+      "price": {
+        "value": "60.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000108%7C0",
+      "seller": {
+        "username": "fixture_seller_08",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1208
+      },
+      "condition": "Used",
+      "conditionId": "3000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture008/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000108",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000108",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "25.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000109|0",
+      "title": "White Queen Flat Sheet Percale 300TC Stained For Rags",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture009/s-l225.jpg"
+      },
+      "price": {
+        "value": "2.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000109%7C0",
+      "seller": {
+        "username": "fixture_seller_09",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1209
+      },
+      "condition": "For parts or not working",
+      "conditionId": "7000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture009/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000109",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000109",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "5.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000110|0",
+      "title": "White Queen Flat Sheet Percale 300TC",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture010/s-l225.jpg"
+      },
+      "price": {
+        "value": "5.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000110%7C0",
+      "seller": {
+        "username": "fixture_seller_10",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1210
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture010/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "AUCTION",
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000110",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000110",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "4.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000111|0",
+      "title": "White Queen Flat Sheet Percale 300TC Ships from Canada",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture011/s-l225.jpg"
+      },
+      "price": {
+        "value": "9.00",
+        "currency": "CAD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000111%7C0",
+      "seller": {
+        "username": "fixture_seller_11",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1211
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture011/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000111",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000111",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "3.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000112|0",
+      "title": "Fitted Sheet Fits Queen/Full White Percale 250TC",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture012/s-l225.jpg"
+      },
+      "price": {
+        "value": "9.99",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000112%7C0",
+      "seller": {
+        "username": "fixture_seller_12",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1212
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture012/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000112",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000112",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "minEstimatedDeliveryDate": "2026-10-02T07:00:00.000Z",
+          "maxEstimatedDeliveryDate": "2026-10-06T07:00:00.000Z",
+          "shippingCost": {
+            "value": "0.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "itemId": "v1|285600000113|0",
+      "title": "Bulk Lot White Queen Flat Sheets Percale Hotel Liquidation",
+      "leafCategoryIds": [
+        "20460"
+      ],
+      "categories": [
+        {
+          "categoryId": "20460",
+          "categoryName": "Sheets"
+        },
+        {
+          "categoryId": "20444",
+          "categoryName": "Bedding"
+        },
+        {
+          "categoryId": "11700",
+          "categoryName": "Home & Garden"
+        }
+      ],
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/fixture013/s-l225.jpg"
+      },
+      "price": {
+        "value": "150.00",
+        "currency": "USD"
+      },
+      "itemHref": "https://api.ebay.com/buy/browse/v1/item/v1%7C285600000113%7C0",
+      "seller": {
+        "username": "fixture_seller_13",
+        "feedbackPercentage": "99.4",
+        "feedbackScore": 1213
+      },
+      "condition": "New",
+      "conditionId": "1000",
+      "thumbnailImages": [
+        {
+          "imageUrl": "https://i.ebayimg.com/images/g/fixture013/s-l64.jpg"
+        }
+      ],
+      "buyingOptions": [
+        "FIXED_PRICE"
+      ],
+      "itemWebUrl": "https://www.ebay.com/itm/285600000113",
+      "itemLocation": {
+        "postalCode": "300**",
+        "country": "US"
+      },
+      "adultOnly": false,
+      "legacyItemId": "285600000113",
+      "availableCoupons": false,
+      "itemCreationDate": "2026-09-27T14:03:11.000Z",
+      "itemOriginDate": "2026-09-27T14:03:11.000Z",
+      "topRatedBuyingExperience": false,
+      "priorityListing": false,
+      "listingMarketplaceId": "EBAY_US"
+    }
+  ],
+  "next": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=white+queen+flat+sheet&category_ids=20460&limit=200&offset=200"
+}

@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, or } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { DB, Queryable } from "@/db/client";
 import {
   listings,
@@ -12,13 +12,15 @@ import {
   type Source,
   type Spec,
 } from "@/db/schema";
-import { formatCents, landedUnitCents } from "@/lib/money";
+import { formatCents } from "@/lib/money";
+import { removeStaleListings } from "./cleanup";
 import { decide, type OrderSize } from "./decide";
 import { heldCents, releaseStaleHolds, unitsHeldBySpec } from "./holds";
 import { findMatch } from "./match";
 import { placeClaimedOrder } from "./purchasing";
 import { getSettings, logEvent, unitsOwnedBySpec, weekSpendCents } from "./queries";
 import { getAdapter, type RawListing } from "./sources";
+import { sourceStatus } from "./sources/selection";
 
 export interface ScanOptions {
   trigger: "manual" | "worker";
@@ -39,6 +41,8 @@ export type ScanSummary =
       queued: number;
       blocked: number;
       expired: number;
+      /** Stale marketplace listings deleted at the end of the scan. */
+      removed: number;
       errors: string[];
     };
 
@@ -62,6 +66,14 @@ function acquireLock(db: DB, now: Date): boolean {
     )
     .run();
   return res.changes > 0;
+}
+
+/** Push the lock out again. Real sources can take a while; a long scan must not look like a dead one. */
+function renewLock(db: DB): void {
+  db.update(settingsTable)
+    .set({ scanLockUntil: new Date(Date.now() + LOCK_MS) })
+    .where(eq(settingsTable.id, 1))
+    .run();
 }
 
 function releaseLock(db: DB): void {
@@ -108,13 +120,26 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
     counts.expired = db
       .update(listings)
       .set({ status: "expired", note: "Nobody approved it in time; the listing has likely sold", decidedBy: "system", decidedAt: now })
-      .where(and(eq(listings.status, "pending"), lt(listings.firstSeenAt, staleBefore)))
+      // The clock starts when it was queued, not when it was first seen: a
+      // listing can sit unmatched for days and only match after a price drop.
+      .where(
+        and(
+          eq(listings.status, "pending"),
+          lt(sql`coalesce(${listings.decidedAt}, ${listings.firstSeenAt})`, staleBefore.getTime()),
+        ),
+      )
       .run().changes;
     // Same for approved buys nobody finished: they stop holding the weekly cap.
     counts.expired += db.transaction((tx) => releaseStaleHolds(tx, now), { behavior: "immediate" });
 
     const activeSpecs = db.select().from(specs).where(eq(specs.active, true)).all();
-    const enabledSources = db.select().from(sources).where(eq(sources.enabled, true)).all();
+    // Switched on in Settings, and allowed by LINEN_SOURCES (and, for eBay, its keys).
+    const enabledSources = db
+      .select()
+      .from(sources)
+      .where(eq(sources.enabled, true))
+      .all()
+      .filter((s) => sourceStatus(s.id).active);
 
     // 2. Each source independently; one failing source doesn't stop the rest.
     for (const source of enabledSources) {
@@ -125,16 +150,28 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
       }
       let raw: RawListing[];
       try {
-        raw = await adapter.fetchListings({ now, rng });
+        raw = await adapter.fetchListings({
+          now,
+          rng,
+          specs: activeSpecs,
+          shipToZip: settings.shipToZip,
+          perOrderCapCents: settings.perOrderCapCents,
+          warn: (message) => errors.push(`${source.name}: ${message}`),
+        });
       } catch (err) {
         errors.push(`${source.name}: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
+      renewLock(db);
       counts.sourcesChecked++;
       counts.listingsSeen += raw.length;
 
-      for (const item of raw) {
-        const { row, isNew, shouldEvaluate } = upsertListing(db, source, item, now);
+      // One write for the whole batch: a real source returns hundreds of listings.
+      const stored = db.transaction((tx) => raw.map((item) => upsertListing(tx, source, item, now)), {
+        behavior: "immediate",
+      });
+
+      for (const { row, isNew, shouldEvaluate } of stored) {
         if (isNew) counts.newListings++;
         if (!shouldEvaluate) continue;
 
@@ -158,9 +195,13 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
         }
         if (outcome.kind === "matched" && outcome.result === "blocked") counts.blocked++;
       }
+      renewLock(db);
     }
 
-    // 3. One text per scan, not one per listing.
+    // 3. Marketplace listing data is only kept while it's fresh.
+    const removed = db.transaction((tx) => removeStaleListings(tx, now), { behavior: "immediate" });
+
+    // 4. One text per scan, not one per listing.
     const text = digestText(digest);
     if (text) {
       db.insert(notifications).values({ channel: "sms", recipient: "nick", body: text }).run();
@@ -174,6 +215,7 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
     if (counts.queued) summaryBits.push(`${counts.queued} waiting on approval`);
     if (counts.blocked) summaryBits.push(`${counts.blocked} blocked`);
     if (counts.expired) summaryBits.push(`${counts.expired} expired`);
+    if (removed) summaryBits.push(`${removed} old listing${removed === 1 ? "" : "s"} cleared`);
     logEvent(db, {
       type: "scan",
       actor: "agent",
@@ -186,14 +228,32 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
       .where(eq(scanRuns.id, run.id))
       .run();
 
-    return { skipped: false, runId: run.id, ...counts, errors };
+    return { skipped: false, runId: run.id, ...counts, removed, errors };
   } finally {
     releaseLock(db);
   }
 }
 
+/** What a source tells us about the item itself. A change in any of these can change the verdict. */
+function itemFields(item: RawListing) {
+  return {
+    title: item.title,
+    url: item.url,
+    category: item.category,
+    size: item.size,
+    color: item.color,
+    material: item.material,
+    threadCount: item.threadCount,
+    condition: item.condition,
+    lotPriceCents: item.lotPriceCents,
+    lotSize: item.lotSize,
+    shippingCents: item.shippingCents,
+    parseIssues: item.parseIssues?.length ? item.parseIssues : null,
+  };
+}
+
 function upsertListing(
-  db: DB,
+  db: Queryable,
   source: Source,
   item: RawListing,
   now: Date,
@@ -203,13 +263,16 @@ function upsertListing(
     .from(listings)
     .where(and(eq(listings.sourceId, source.id), eq(listings.externalId, item.externalId)))
     .get();
+  const fields = itemFields(item);
 
   if (!existing) {
     const row = db
       .insert(listings)
       .values({
         sourceId: source.id,
-        ...item,
+        externalId: item.externalId,
+        ...fields,
+        lotsAvailable: item.lotsAvailable,
         status: "unmatched",
         firstSeenAt: now,
         lastSeenAt: now,
@@ -219,27 +282,40 @@ function upsertListing(
     return { row, isNew: true, shouldEvaluate: true };
   }
 
-  const priceChanged =
-    existing.lotPriceCents !== item.lotPriceCents || existing.shippingCents !== item.shippingCents;
+  const byId = eq(listings.id, existing.id);
 
-  // Terminal states keep their price history as it was when decided.
-  const live = existing.status === "unmatched" || existing.status === "pending";
-  const row = live
-    ? db
-        .update(listings)
-        .set({
-          lotPriceCents: item.lotPriceCents,
-          shippingCents: item.shippingCents,
-          lotsAvailable: item.lotsAvailable,
-          lastSeenAt: now,
-        })
-        .where(eq(listings.id, existing.id))
-        .returning()
-        .get()
-    : db.update(listings).set({ lastSeenAt: now }).where(eq(listings.id, existing.id)).returning().get();
+  // Not a match so far: take everything the source says now, and look again
+  // if any of it changed. A price drop can turn a near-miss into a match.
+  if (existing.status === "unmatched") {
+    const changed = (Object.keys(fields) as (keyof typeof fields)[]).some(
+      (k) => k !== "title" && k !== "url" && JSON.stringify(existing[k]) !== JSON.stringify(fields[k]),
+    );
+    const row = db
+      .update(listings)
+      .set({ ...fields, lotsAvailable: item.lotsAvailable, lastSeenAt: now })
+      .where(byId)
+      .returning()
+      .get();
+    return { row, isNew: false, shouldEvaluate: changed };
+  }
 
-  // A price drop can turn a near-miss into a match.
-  return { row, isNew: false, shouldEvaluate: existing.status === "unmatched" && priceChanged };
+  // Waiting on approval: keep the price current. Every other state keeps the
+  // price it was decided at.
+  const row =
+    existing.status === "pending" && fields.shippingCents != null
+      ? db
+          .update(listings)
+          .set({
+            lotPriceCents: fields.lotPriceCents,
+            shippingCents: fields.shippingCents,
+            lotsAvailable: item.lotsAvailable,
+            lastSeenAt: now,
+          })
+          .where(byId)
+          .returning()
+          .get()
+      : db.update(listings).set({ lastSeenAt: now }).where(byId).returning().get();
+  return { row, isNew: false, shouldEvaluate: false };
 }
 
 type EvalOutcome =
@@ -289,8 +365,9 @@ function judge(tx: Queryable, ctx: EvalContext): Step {
   }
 
   const spec = match.spec;
+  const known = match.listing;
   const decision = decide({
-    listing,
+    listing: known,
     spec,
     source,
     settings: getSettings(tx),
@@ -299,7 +376,7 @@ function judge(tx: Queryable, ctx: EvalContext): Step {
     weekSpendCents: weekSpendCents(tx, now),
     heldCents: heldCents(tx),
   });
-  const unit = formatCents(landedUnitCents(listing.lotPriceCents, listing.lotSize, listing.shippingCents));
+  const unit = formatCents(match.unitCents);
 
   if (decision.kind === "blocked") {
     tx.update(listings)
@@ -324,7 +401,8 @@ function judge(tx: Queryable, ctx: EvalContext): Step {
     const note =
       decision.kind === "queue" ? decision.note : `${source.name} can't place orders automatically yet`;
     tx.update(listings)
-      .set({ status: "pending", matchedSpecId: spec.id, proposedLots: decision.lots, note })
+      // decidedAt marks when it was queued; approvals expire from then.
+      .set({ status: "pending", matchedSpecId: spec.id, proposedLots: decision.lots, note, decidedBy: "agent", decidedAt: now })
       .where(eq(listings.id, listing.id))
       .run();
     logEvent(tx, {

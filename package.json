@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:reset": "tsx scripts/db-reset.ts",
-    "db:demo": "tsx scripts/db-reset.ts --demo"
+    "db:demo": "tsx scripts/db-reset.ts --demo",
+    "ebay:check": "tsx scripts/ebay-check.ts",
+    "ebay:report": "tsx scripts/ebay-report.ts"
   },
   "dependencies": {
     "@fontsource/archivo": "^5.3.0",

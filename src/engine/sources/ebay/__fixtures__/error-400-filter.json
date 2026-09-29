@@ -1,0 +1,11 @@
+{
+  "errors": [
+    {
+      "errorId": 12012,
+      "domain": "API_BROWSE",
+      "category": "REQUEST",
+      "message": "The 'price' filter requires the 'priceCurrency' filter.",
+      "longMessage": "The 'price' filter requires the 'priceCurrency' filter."
+    }
+  ]
+}

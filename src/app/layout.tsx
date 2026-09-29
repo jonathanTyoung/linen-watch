@@ -13,6 +13,7 @@ import "./globals.css";
 import { getDb } from "@/db/client";
 import { listings } from "@/db/schema";
 import { NavLinks } from "@/components/nav-links";
+import { ebayActive } from "@/engine/sources/selection";
 import { UserSwitcher } from "@/components/user-switcher";
 import { currentUser } from "@/lib/session";
 
@@ -34,6 +35,8 @@ async function needsAttentionCount(): Promise<number> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [user, pendingCount] = await Promise.all([currentUser(), needsAttentionCount()]);
+  // Read after the awaits above, so it's decided per request, not at build time.
+  const liveEbay = ebayActive();
 
   return (
     <html lang="en" className="h-full antialiased">
@@ -60,9 +63,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <div className="flex items-center gap-2">
                 <span
                   className="hidden rounded-full border border-warn/40 bg-warn-soft px-2 py-0.5 text-[11px] font-semibold text-warn sm:inline"
-                  title="Sources are simulated and no real orders are placed"
+                  title={
+                    liveEbay
+                      ? "eBay listings are real. Linen Watch never orders on eBay itself; a person checks out."
+                      : "Sources are simulated and no real orders are placed"
+                  }
                 >
-                  Mock mode · no real orders
+                  {liveEbay ? "eBay is live · you check out" : "Mock mode · no real orders"}
                 </span>
                 <UserSwitcher current={user} />
               </div>
@@ -72,7 +79,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
         <footer className="mx-auto w-full max-w-6xl px-4 pb-8 text-xs text-muted sm:px-6">
-          Mock sources and orders. Nothing here spends real money.
+          {liveEbay
+            ? "eBay listings are real. Linen Watch never orders on eBay itself: a person checks out in the eBay app, then marks it bought here."
+            : "Mock sources and orders. Nothing here spends real money."}
         </footer>
       </body>
     </html>

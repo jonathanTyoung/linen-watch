@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findMatch, specFailures, type ListingLike, type SpecLike } from "./match";
+import { findMatch, specFailures, unknowns, type KnownListing, type ListingLike, type SpecLike } from "./match";
 
 const queenFlat: SpecLike = {
   id: 1,
@@ -30,7 +30,7 @@ const towels: SpecLike = {
 };
 
 // Case of 12 at $96 + $12 shipping = $9.00/unit landed.
-const goodSheet: ListingLike = {
+const goodSheet: ListingLike & KnownListing = {
   category: "flat_sheet",
   size: "queen",
   color: "white",
@@ -108,6 +108,68 @@ describe("findMatch", () => {
   it("stops matching once a spec hits its target", () => {
     const r = findMatch(goodSheet, [queenFlat], new Map([[1, 120]]));
     expect(r).toEqual({ kind: "no_match", reason: "Queen flat sheets is fully stocked (120/120)" });
+  });
+
+  describe("listings we couldn't read with confidence", () => {
+    const none = new Map<number, number>();
+
+    it("never match on unknown shipping, however cheap they look", () => {
+      const bargain = { ...goodSheet, lotPriceCents: 100, shippingCents: null };
+      expect(findMatch(bargain, [queenFlat], none)).toEqual({
+        kind: "no_match",
+        reason: "Can't be sure it fits: shipping cost isn't listed",
+      });
+    });
+
+    it("never match on an unknown lot size", () => {
+      expect(findMatch({ ...goodSheet, lotSize: null }, [queenFlat], none)).toEqual({
+        kind: "no_match",
+        reason: "Can't be sure it fits: can't tell how many are in the lot",
+      });
+    });
+
+    it.each(["category", "color", "material", "condition"] as const)("never match on an unknown %s", (field) => {
+      expect(findMatch({ ...goodSheet, [field]: null }, [queenFlat], none).kind).toBe("no_match");
+    });
+
+    it("never match when the source flagged a problem, even with every field filled in", () => {
+      const flagged = {
+        ...goodSheet,
+        parseIssues: [{ field: "listing" as const, reason: "the listing covers several options" }],
+      };
+      expect(findMatch(flagged, [queenFlat], none)).toEqual({
+        kind: "no_match",
+        reason: "Can't be sure it fits: the listing covers several options",
+      });
+    });
+
+    it("give the source's own reason, and a plain one for anything it left unexplained", () => {
+      const listing = {
+        ...goodSheet,
+        size: null,
+        lotSize: null,
+        shippingCents: null,
+        parseIssues: [
+          { field: "size" as const, reason: "the title lists more than one size (full, queen)" },
+          { field: "lotSize" as const, reason: "it looks like a multi-pack, but the count isn't in the title" },
+        ],
+      };
+      expect(unknowns(listing).map((i) => i.reason)).toEqual([
+        "the title lists more than one size (full, queen)",
+        "it looks like a multi-pack, but the count isn't in the title",
+        "shipping cost isn't listed",
+      ]);
+      expect(findMatch(listing, [queenFlat], none)).toEqual({
+        kind: "no_match",
+        reason:
+          "Can't be sure it fits: the title lists more than one size (full, queen), it looks like a multi-pack, but the count isn't in the title and shipping cost isn't listed",
+      });
+    });
+
+    it("still match when there's nothing unknown", () => {
+      expect(findMatch({ ...goodSheet, parseIssues: [] }, [queenFlat], none).kind).toBe("match");
+      expect(findMatch({ ...goodSheet, parseIssues: null }, [queenFlat], none).kind).toBe("match");
+    });
   });
 
   it("counts approved-but-unbought units toward the target", () => {

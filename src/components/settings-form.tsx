@@ -69,6 +69,7 @@ function NumberField({
   label,
   hint,
   error,
+  warning,
   value,
   unit,
 }: {
@@ -76,6 +77,8 @@ function NumberField({
   label: string;
   hint: string;
   error?: string;
+  /** Saved fine, but the person should know. */
+  warning?: string | null;
   value: number;
   unit: string;
 }) {
@@ -89,13 +92,35 @@ function NumberField({
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{unit}</span>
       </div>
       <p className={cx("text-xs", error ? "text-danger" : "text-muted")}>{error ?? hint}</p>
+      {warning && !error ? (
+        <p role="alert" className="text-xs text-warn">
+          {warning}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-export function SettingsForm({ settings }: { settings: Settings }) {
+/** eBay's limits, passed in only when scans are calling eBay. */
+interface EbayLimits {
+  minScanSeconds: number;
+  suggestedScanSeconds: number;
+  callsPerScan: number;
+  dailyCallLimit: number;
+}
+
+/** Shown under "Scan every" when the saved interval would eat too much of eBay's daily allowance. */
+function ebayScanWarning(scanIntervalSeconds: number, ebay: EbayLimits | null): string | null {
+  if (!ebay || scanIntervalSeconds >= ebay.minScanSeconds) return null;
+  const perDay = Math.round((24 * 60 * 60) / scanIntervalSeconds) * ebay.callsPerScan;
+  const limit = ebay.dailyCallLimit.toLocaleString("en-US");
+  return `Too fast for eBay. Scanning every ${scanIntervalSeconds} seconds could make ${perDay.toLocaleString("en-US")} calls a day, and eBay allows about ${limit}. Set this to ${ebay.minScanSeconds} (${ebay.minScanSeconds / 60} minutes) or more; ${ebay.suggestedScanSeconds} (${ebay.suggestedScanSeconds / 60} minutes) is a good setting.`;
+}
+
+export function SettingsForm({ settings, ebay }: { settings: Settings; ebay: EbayLimits | null }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSettings, {});
   const e = state.errors ?? {};
+  const scanWarning = ebayScanWarning(settings.scanIntervalSeconds, ebay);
 
   return (
     <form
@@ -129,8 +154,13 @@ export function SettingsForm({ settings }: { settings: Settings }) {
         <NumberField
           id="scanIntervalSeconds"
           label="Scan every"
-          hint="How often the worker checks sources. Real sources would be minutes to hours."
+          hint={
+            ebay
+              ? `How often the worker checks sources. With eBay on, use ${ebay.suggestedScanSeconds} (${ebay.suggestedScanSeconds / 60} minutes).`
+              : "How often the worker checks sources. Real sources would be minutes to hours."
+          }
           error={e.scanIntervalSeconds}
+          warning={scanWarning}
           value={settings.scanIntervalSeconds}
           unit="seconds"
         />
@@ -150,6 +180,21 @@ export function SettingsForm({ settings }: { settings: Settings }) {
           value={settings.checkoutExpiryHours}
           unit="hours"
         />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="shipToZip" className="text-sm font-medium">
+            Ship to ZIP code
+          </label>
+          <input
+            id="shipToZip"
+            name="shipToZip"
+            inputMode="numeric"
+            defaultValue={settings.shipToZip}
+            className={cx(input, "tabular font-mono")}
+          />
+          <p className={cx("text-xs", e.shipToZip ? "text-danger" : "text-muted")}>
+            {e.shipToZip ?? "Where orders are delivered. eBay uses it to quote shipping, which counts toward the price per unit."}
+          </p>
+        </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="notifyPhone" className="text-sm font-medium">
             Text alerts to

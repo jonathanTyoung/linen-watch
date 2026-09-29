@@ -54,6 +54,8 @@ runScan ──► each enabled source adapter ──► listings (upserted by so
 - **Order sizing** fills the spec's remaining target, never past its per-order unit limit, then shrinks to fit the per-order and weekly dollar caps.
 - **Auto-buy only happens when all of these are true:** auto-buy is on, buying isn't paused, the source has an ordering API, that source has been trusted for auto-buy, and the order fits the weekly cap. Anything else goes to the queue with the reason.
 - **Approvals re-check the guardrails** at the moment someone taps Approve, since spend may have changed since the listing was queued.
+- **Approving claims the listing first.** The check and the claim are one database write, so two people tapping Approve on the same listing place one order, not two.
+- **Promised money counts against the weekly cap.** An order being placed, or an approved buy waiting on someone to check out, holds its total until it's bought, marked "Didn't buy", fails, or expires (24 hours by default, set in Settings). Two approvals can't squeeze past the cap together, and the agent's auto-buy sees the same holds.
 - **Pending matches expire** after the configured window (listings sell).
 - Worker and web app are separate processes sharing one SQLite file (WAL mode). A lock row keeps two scans from overlapping.
 
@@ -65,6 +67,7 @@ runScan ──► each enabled source adapter ──► listings (upserted by so
 | `src/engine/decide.ts` | Pure guardrails and order sizing |
 | `src/engine/scan.ts` | The agent loop: fetch, match, decide, buy/queue, notify |
 | `src/engine/purchasing.ts` | Approve / skip / mark-purchased, shared by every UI path |
+| `src/engine/holds.ts` | Money held against the weekly cap by in-flight and approved-but-unbought orders |
 | `src/engine/sources/` | Source adapter interface, mock adapters, registry |
 | `src/db/schema.ts` | Drizzle schema (single source of truth) |
 | `drizzle/` | Generated SQL migrations, applied on boot |

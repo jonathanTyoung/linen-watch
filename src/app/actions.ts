@@ -209,6 +209,7 @@ const settingsSchema = z.object({
     .transform(parseDollarsToCents)
     .refine((v) => Number.isFinite(v) && v >= 100 && v <= 10_000_000, "Enter a dollar amount like 300"),
   pendingExpiryMinutes: z.coerce.number().int().min(5, "At least 5 minutes").max(10080, "At most 7 days"),
+  checkoutExpiryHours: z.coerce.number().int("Whole hours only").min(1, "At least 1 hour").max(168, "At most 7 days"),
   scanIntervalSeconds: z.coerce.number().int().min(10, "At least 10 seconds").max(3600, "At most an hour"),
   notifyPhone: z.string().trim().max(30),
 });
@@ -220,6 +221,7 @@ export async function saveSettings(_prev: FormState, fd: FormData): Promise<Form
     weeklyCap: String(fd.get("weeklyCap") ?? ""),
     perOrderCap: String(fd.get("perOrderCap") ?? ""),
     pendingExpiryMinutes: String(fd.get("pendingExpiryMinutes") ?? ""),
+    checkoutExpiryHours: String(fd.get("checkoutExpiryHours") ?? ""),
     scanIntervalSeconds: String(fd.get("scanIntervalSeconds") ?? ""),
     notifyPhone: String(fd.get("notifyPhone") ?? ""),
   });
@@ -238,6 +240,7 @@ export async function saveSettings(_prev: FormState, fd: FormData): Promise<Form
       weeklyCapCents: v.weeklyCap,
       perOrderCapCents: v.perOrderCap,
       pendingExpiryMinutes: v.pendingExpiryMinutes,
+      checkoutExpiryHours: v.checkoutExpiryHours,
       scanIntervalSeconds: v.scanIntervalSeconds,
       notifyPhone: v.notifyPhone || null,
     })

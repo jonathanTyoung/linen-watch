@@ -80,7 +80,10 @@ export const listings = sqliteTable(
     lotsAvailable: integer("lots_available").notNull(),
     shippingCents: integer("shipping_cents").notNull().default(0),
     /**
-     * unmatched | pending | awaiting_checkout | purchased | rejected | blocked | expired
+     * unmatched | pending | ordering | awaiting_checkout | purchased | rejected | blocked | expired
+     *
+     * `ordering` is a claim: someone (or the agent) is placing the order right
+     * now. It and `awaiting_checkout` hold money against the weekly cap.
      */
     status: text("status").notNull(),
     matchedSpecId: integer("matched_spec_id").references(() => specs.id),
@@ -132,6 +135,8 @@ export const settings = sqliteTable("settings", {
   weeklyCapCents: integer("weekly_cap_cents").notNull(),
   perOrderCapCents: integer("per_order_cap_cents").notNull(),
   pendingExpiryMinutes: integer("pending_expiry_minutes").notNull(),
+  /** How long an approved buy can wait on checkout before its hold on the weekly cap is released. */
+  checkoutExpiryHours: integer("checkout_expiry_hours").notNull().default(24),
   scanIntervalSeconds: integer("scan_interval_seconds").notNull(),
   notifyPhone: text("notify_phone"),
   /** Crude cross-process lock so the worker and the "Scan now" button never overlap. */

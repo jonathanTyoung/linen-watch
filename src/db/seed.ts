@@ -129,6 +129,7 @@ export const DEFAULT_SETTINGS: typeof schema.settings.$inferInsert = {
   weeklyCapCents: 60000,
   perOrderCapCents: 30000,
   pendingExpiryMinutes: 180,
+  checkoutExpiryHours: 24,
   scanIntervalSeconds: 45,
   notifyPhone: "(615) 555-0142",
 };

@@ -7,6 +7,7 @@ import { Pill, cx } from "./ui";
 
 const statusTone: Record<ListingStatus, "neutral" | "accent" | "good" | "warn" | "danger"> = {
   pending: "warn",
+  ordering: "accent",
   awaiting_checkout: "accent",
   purchased: "good",
   rejected: "neutral",

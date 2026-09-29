@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `checkout_expiry_hours` integer DEFAULT 24 NOT NULL;

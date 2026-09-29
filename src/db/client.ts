@@ -1,12 +1,16 @@
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import fs from "node:fs";
 import path from "node:path";
 import * as schema from "./schema";
 import { seedIfEmpty } from "./seed";
 
 export type DB = BetterSQLite3Database<typeof schema>;
+
+/** The connection or a transaction on it. Engine helpers take this so they can run inside either. */
+export type Queryable = BaseSQLiteDatabase<"sync", Database.RunResult, typeof schema>;
 
 const globalForDb = globalThis as unknown as { __linenDb?: DB };
 

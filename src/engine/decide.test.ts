@@ -18,6 +18,7 @@ const with_ = (patch: {
   settings?: Partial<DecideInput["settings"]>;
   unitsOwned?: number;
   weekSpendCents?: number;
+  heldCents?: number;
 }): DecideInput => ({
   ...base,
   ...patch,
@@ -69,6 +70,20 @@ describe("planOrder", () => {
   });
 });
 
+describe("holds", () => {
+  it("shrinks the order to fit what's left after holds", () => {
+    // $400 cap, $100 spent, $100 held: $200 left fits 1 lot ($108), not 2 ($204).
+    const plan = planOrder(with_({ weekSpendCents: 10000, heldCents: 10000 }));
+    expect(plan).toMatchObject({ kind: "ok", lots: 1, overWeeklyCap: false });
+  });
+
+  it("queues instead of auto-buying when holds use up the cap", () => {
+    const d = decide(with_({ weekSpendCents: 0, heldCents: 35000 }));
+    expect(d).toMatchObject({ kind: "queue", overWeeklyCap: true });
+    expect(d.note).toMatch(/already approved but not bought yet/);
+  });
+});
+
 describe("decide", () => {
   it("auto-buys when every guardrail allows it", () => {
     expect(decide(base).kind).toBe("auto_buy");
@@ -107,5 +122,12 @@ describe("approvalBlocker", () => {
 
   it("refuses when the weekly cap would break", () => {
     expect(approvalBlocker({ settings, weekSpendCents: 35000, totalCents: 10000 })).toMatch(/over the \$400\.00 cap/);
+  });
+
+  it("counts money that's approved but not bought yet against the weekly cap", () => {
+    expect(approvalBlocker({ settings, weekSpendCents: 10000, heldCents: 20000, totalCents: 10000 })).toBeNull();
+    const msg = approvalBlocker({ settings, weekSpendCents: 10000, heldCents: 25000, totalCents: 10000 });
+    expect(msg).toMatch(/\$450\.00/);
+    expect(msg).toMatch(/\$250\.00 already approved but not bought yet/);
   });
 });

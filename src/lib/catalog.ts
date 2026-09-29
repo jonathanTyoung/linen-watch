@@ -59,6 +59,7 @@ export type Color = keyof typeof COLORS;
 
 export const LISTING_STATUSES = {
   pending: "Needs approval",
+  ordering: "Ordering",
   awaiting_checkout: "Awaiting checkout",
   purchased: "Purchased",
   rejected: "Rejected",

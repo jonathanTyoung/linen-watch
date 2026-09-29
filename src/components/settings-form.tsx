@@ -142,6 +142,14 @@ export function SettingsForm({ settings }: { settings: Settings }) {
           value={settings.pendingExpiryMinutes}
           unit="minutes"
         />
+        <NumberField
+          id="checkoutExpiryHours"
+          label="Approved buys expire after"
+          hint="An approved buy counts against the weekly cap until someone buys it. Unbought, it lets go after this."
+          error={e.checkoutExpiryHours}
+          value={settings.checkoutExpiryHours}
+          unit="hours"
+        />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="notifyPhone" className="text-sm font-medium">
             Text alerts to

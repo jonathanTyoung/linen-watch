@@ -13,6 +13,7 @@ import {
   type Spec,
 } from "@/db/schema";
 import { orderCost } from "@/engine/decide";
+import { heldCents } from "@/engine/holds";
 import {
   getSettings,
   recentEvents,
@@ -101,6 +102,7 @@ export async function loadDashboard() {
     workerAlive,
     seen24h,
     weekSpendCents: weekSpendCents(db, now),
+    heldCents: heldCents(db),
     weekUnits: unitsBoughtSince(db, weekStart),
     stock,
     events: recentEvents(db, 14),

@@ -31,6 +31,12 @@ export interface DecideInput {
   };
   unitsOwned: number;
   weekSpendCents: number;
+  /**
+   * Money already promised but not yet an order: orders being placed right
+   * now, and approved buys waiting on a person to check out. Counts against
+   * the weekly cap exactly like spend.
+   */
+  heldCents?: number;
 }
 
 export interface OrderSize {
@@ -70,7 +76,7 @@ export type OrderPlan =
  * the weekly cap when possible. Says "blocked" when no order can ever work.
  */
 export function planOrder(input: Omit<DecideInput, "source">): OrderPlan {
-  const { listing, spec, settings, unitsOwned, weekSpendCents } = input;
+  const { listing, spec, settings, unitsOwned, weekSpendCents, heldCents = 0 } = input;
 
   if (listing.lotSize > spec.maxUnitsPerOrder) {
     return {
@@ -91,14 +97,19 @@ export function planOrder(input: Omit<DecideInput, "source">): OrderPlan {
     };
   }
 
-  const weekLeft = settings.weeklyCapCents - weekSpendCents;
+  const weekLeft = settings.weeklyCapCents - weekSpendCents - heldCents;
   while (lots > 1 && orderCost(listing, lots).totalCents > weekLeft) lots--;
   const size = orderCost(listing, lots);
   return { kind: "ok", overWeeklyCap: size.totalCents > weekLeft, ...size };
 }
 
+/** Explains where the extra money in a cap message comes from. Empty when nothing is held. */
+function heldNote(heldCents: number): string {
+  return heldCents > 0 ? ` (counting ${formatCents(heldCents)} already approved but not bought yet)` : "";
+}
+
 export function decide(input: DecideInput): Decision {
-  const { source, settings, weekSpendCents } = input;
+  const { source, settings, weekSpendCents, heldCents = 0 } = input;
 
   const plan = planOrder(input);
   if (plan.kind === "blocked") return plan;
@@ -110,7 +121,7 @@ export function decide(input: DecideInput): Decision {
   if (settings.paused) return queue("Buying is paused");
   if (overWeeklyCap) {
     return queue(
-      `Would bring this week to ${formatCents(weekSpendCents + size.totalCents)}, over the ${formatCents(settings.weeklyCapCents)} cap`,
+      `Would bring this week to ${formatCents(weekSpendCents + heldCents + size.totalCents)}${heldNote(heldCents)}, over the ${formatCents(settings.weeklyCapCents)} cap`,
     );
   }
   if (!settings.autoBuyEnabled) return queue("Auto-buy is off, so this waits for approval");
@@ -130,15 +141,16 @@ export function decide(input: DecideInput): Decision {
 export function approvalBlocker(input: {
   settings: DecideInput["settings"];
   weekSpendCents: number;
+  heldCents?: number;
   totalCents: number;
 }): string | null {
-  const { settings, weekSpendCents, totalCents } = input;
+  const { settings, weekSpendCents, heldCents = 0, totalCents } = input;
   if (settings.paused) return "Buying is paused. Resume it in Settings to approve orders.";
   if (totalCents > settings.perOrderCapCents) {
     return `This order is ${formatCents(totalCents)}, over the ${formatCents(settings.perOrderCapCents)} per-order cap.`;
   }
-  if (weekSpendCents + totalCents > settings.weeklyCapCents) {
-    return `This order would bring this week to ${formatCents(weekSpendCents + totalCents)}, over the ${formatCents(settings.weeklyCapCents)} cap. Raise the cap in Settings or wait for Monday's reset.`;
+  if (weekSpendCents + heldCents + totalCents > settings.weeklyCapCents) {
+    return `This order would bring this week to ${formatCents(weekSpendCents + heldCents + totalCents)}${heldNote(heldCents)}, over the ${formatCents(settings.weeklyCapCents)} cap. Raise the cap in Settings or wait for Monday's reset.`;
   }
   return null;
 }

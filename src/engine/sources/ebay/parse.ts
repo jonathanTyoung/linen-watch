@@ -1,10 +1,52 @@
-import type { Category, Color, Condition, ListingIssue, Material, Size } from "@/lib/catalog";
+import {
+  CATEGORIES,
+  label,
+  type Category,
+  type Color,
+  type Condition,
+  type ListingCaution,
+  type ListingIssue,
+  type Material,
+  type Size,
+} from "@/lib/catalog";
 import type { RawListing } from "../types";
 import { CONDITION_BY_EBAY_ID } from "./config";
 import type { EbayAmount, EbayItemSummary, EbayShippingOption } from "./types";
+import {
+  BLENDS,
+  COLORS,
+  COTTON,
+  COTTON_MEANS,
+  FIBER_NOT_STATED,
+  KINDS,
+  LOT_PHRASES,
+  MATERIAL_WORDS,
+  MAX_LOT_SIZE,
+  MICROFIBER,
+  MULTIPACK_HINTS,
+  NEGATION_WORDS,
+  NOT_COUNTS,
+  NUMBER_WORDS,
+  OTHER_COLORS,
+  OTHER_MATERIALS,
+  OTHER_PRODUCTS,
+  POLYESTER,
+  SETS,
+  SIZES,
+  SIZE_MEANS,
+  THREAD_COUNTS,
+  THREAD_COUNT_RANGE,
+  UNSIZED,
+  VAGUE_ITEMS,
+  WEAVES,
+  WEAVES_NEEDING_FIBER,
+} from "./vocabulary";
 
 /**
  * Turn an eBay listing into a RawListing. Pure: no network, no clock.
+ *
+ * This file is the logic. The words it looks for are all in ./vocabulary.ts,
+ * which is the file to edit when tuning how titles are read.
  *
  * eBay's search gives structured price, shipping and condition, but what the
  * item actually is lives in a free-text title written by the seller. The rule
@@ -21,25 +63,11 @@ export interface ParsedTitle {
   threadCount: number | null;
   lotSize: number | null;
   issues: ListingIssue[];
+  /** Worth a person's attention, but not a reason to reject. */
+  cautions: ListingCaution[];
 }
 
 // ---------- title: preparation ----------
-
-const NUMBER_WORDS: Record<string, number> = {
-  one: 1,
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8,
-  nine: 9,
-  ten: 10,
-  eleven: 11,
-  twelve: 12,
-  "twenty four": 24,
-};
 
 interface Prepared {
   /** Lowercased, punctuation softened, negated words removed. */
@@ -47,6 +75,11 @@ interface Prepared {
   /** Things the title says the item is NOT ("not percale"). */
   negated: string[];
 }
+
+const NEGATED = new RegExp(
+  String.raw`\b(?:${NEGATION_WORDS.join("|")})[\s-]+(?:an?\s+|the\s+|any\s+)?([a-z]+(?:[\s-]?cases?)?)`,
+  "g",
+);
 
 function prepare(title: string): Prepared {
   let text = ` ${title.toLowerCase()} `
@@ -59,17 +92,17 @@ function prepare(title: string): Prepared {
   // "NOT percale", "no fitted sheet", "without pillowcases": take the negated
   // thing out so it isn't read as a description of the item.
   const negated: string[] = [];
-  text = text.replace(
-    /\b(?:not|non|no|without|w\/o|excludes?|excluding)[\s-]+(?:an?\s+|the\s+|any\s+)?([a-z]+(?:[\s-]?cases?)?)/g,
-    (_m, word: string) => {
-      negated.push(word.trim());
-      return " ";
-    },
-  );
+  text = text.replace(NEGATED, (_m, word: string) => {
+    negated.push(word.trim());
+    return " ";
+  });
   return { text: text.replace(/\s+/g, " "), negated };
 }
 
-const has = (text: string, re: RegExp) => re.test(text);
+/** Test without the pattern remembering where it got to (vocabulary patterns are often global). */
+const has = (text: string, re: RegExp) => new RegExp(re.source, re.flags.replace("g", "")).test(text);
+const hasAll = (text: string, all: RegExp[]) => all.every((re) => has(text, re));
+const globally = (re: RegExp) => new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`);
 
 function list(items: string[]): string {
   return [...new Set(items)].join(", ");
@@ -77,238 +110,127 @@ function list(items: string[]): string {
 
 // ---------- title: what kind of item ----------
 
-const OTHER_PRODUCTS: [RegExp, string][] = [
-  [/\bbath sheets?\b/, "bath sheet"],
-  [/\bwash\s?cloths?\b|\bface (?:cloths?|towels?)\b/, "washcloth"],
-  [/\bbath mats?\b|\bbath rugs?\b/, "bath mat"],
-  [/\b(?:beach|pool|kitchen|dish|tea|gym|salon|golf|paper) towels?\b/, "another kind of towel"],
-  [/\bcomforters?\b/, "comforter"],
-  [/\bblankets?\b/, "blanket"],
-  [/\bquilts?\b|\bcoverlets?\b|\bbedspreads?\b/, "bedspread"],
-  [/\bmattress (?:pads?|protectors?|toppers?|covers?|encasements?)\b/, "mattress cover"],
-  [/\bbed\s?skirts?\b|\bdust ruffles?\b/, "bed skirt"],
-  [/\bshams?\b/, "pillow sham"],
-  [/\bpillow (?:protectors?|covers?|inserts?)\b/, "pillow cover"],
-  [/\bduvet inserts?\b/, "duvet insert"],
-  [/\bcurtains?\b|\btable\s?cloths?\b|\bnapkins?\b|\b(?:bath)?robes?\b/, "something else"],
-];
-
-const CATEGORY_NAMES: Record<Category, string> = {
-  flat_sheet: "flat sheet",
-  fitted_sheet: "fitted sheet",
-  pillowcase: "pillowcase",
-  duvet_cover: "duvet cover",
-  bath_towel: "bath towel",
-  hand_towel: "hand towel",
-};
-
-const PIECES = /\b\d+\s?-?\s?(?:pc|pcs|piece|pieces)\b/;
-
 function parseCategory(text: string): { category: Category | null; issue?: ListingIssue } {
   const unknown = (reason: string) => ({ category: null, issue: { field: "category" as const, reason } });
 
-  const sheet = has(text, /\bsheets?\b/) && !has(text, /\bbath sheets?\b/);
-  const flat = has(text, /\bflat\b/);
-  const fitted = has(text, /\bfitted\b/);
-  const towel = has(text, /\btowels?\b/);
+  const set = SETS.find((s) => hasAll(text, s.all));
+  if (set) return unknown(set.reason);
 
-  // "Sheet set" is flat + fitted + pillowcases sold together. "Sheet set of 2"
-  // and "set of 2 flat sheets" are lots of one thing, not sets.
-  const sheetSet =
-    has(text, /\bsheets? sets?\b(?! of \d)/) ||
-    has(text, /\bbed(?:ding)? sets?\b/) ||
-    (sheet && has(text, PIECES) && has(text, /\bsets?\b/));
-  if (sheetSet) return unknown("it's a sheet set, not a single kind of item");
-  if (towel && (has(text, /\btowels? sets?\b(?! of \d)/) || (has(text, PIECES) && has(text, /\bsets?\b/)))) {
-    return unknown("it's a towel set, not a single kind of item");
-  }
-
-  const kinds: Category[] = [];
-  if (sheet && flat) kinds.push("flat_sheet");
-  if (sheet && fitted) kinds.push("fitted_sheet");
-  if (has(text, /\bpillow\s?-?\s?cases?\b/)) kinds.push("pillowcase");
-  if (has(text, /\bduvet covers?\b/)) kinds.push("duvet_cover");
-  if (has(text, /\bbath towels?\b/)) kinds.push("bath_towel");
-  if (has(text, /\bhand towels?\b/)) kinds.push("hand_towel");
-
-  const others = OTHER_PRODUCTS.filter(([re]) => has(text, re)).map(([, name]) => name);
+  const kinds = KINDS.filter((k) => hasAll(text, k.all));
+  const others = OTHER_PRODUCTS.filter((o) => has(text, o.pattern)).map((o) => o.name);
 
   if (kinds.length + others.length > 1) {
-    const names = [...kinds.map((k) => CATEGORY_NAMES[k]), ...others];
+    const names = [...kinds.map((k) => label(CATEGORIES, k.means).toLowerCase()), ...others];
     return unknown(`it's more than one kind of item (${list(names)})`);
   }
-  if (kinds.length === 1) return { category: kinds[0] };
+  if (kinds.length === 1) return { category: kinds[0].means };
   if (others.length === 1) return unknown(`it's a ${others[0]}, which isn't something we track`);
-  if (sheet) return unknown("can't tell if it's a flat or fitted sheet");
-  if (towel) return unknown("can't tell what kind of towel it is");
-  return unknown("can't tell what kind of item it is");
+
+  const vague = VAGUE_ITEMS.find((v) => has(text, v.pattern));
+  return unknown(vague?.reason ?? "can't tell what kind of item it is");
 }
 
 // ---------- title: size ----------
 
-/** Sizes we don't stock. Checked first so "cal king" isn't read as "king". */
-const OTHER_SIZES: [RegExp, string][] = [
-  [/\bcal(?:ifornia)?\.? king\b|\bcali king\b/g, "California king"],
-  [/\bsplit king\b/g, "split king"],
-  [/\bsuper king\b/g, "super king"],
-  [/\btwin[\s-]?xl\b|\bxl[\s-]?twin\b|\btwin extra long\b/g, "twin XL"],
-  [/\bfull[\s-]?xl\b/g, "full XL"],
-  [/\b(?:olympic|short|rv|three quarter) queen\b/g, "an odd queen size"],
-  [/\bbody pillow\b/g, "body pillow"],
-  [/\beuro(?:pean)?\b/g, "euro"],
-  [/\btoddler\b|\bcrib\b|\btravel\b/g, "toddler or travel"],
-];
-
-const BED_SIZES: [RegExp, string][] = [
-  [/\btwin\b/g, "twin"],
-  // "full" is also an ordinary word: "full case", "full elastic".
-  [/\bfull\b(?! (?:set|case|dozen|length|elastic|all|around|refund))/g, "full"],
-  [/\bdouble (?:bed|size)\b/g, "full"],
-  [/\bqueen\b/g, "queen"],
-  [/\bking\b/g, "king"],
-  [/\b(?:standard|std)\b/g, "standard"],
-];
-
 function parseSize(text: string, category: Category | null): { size: Size | null; issue?: ListingIssue } {
   const unknown = (reason: string) => ({ size: null, issue: { field: "size" as const, reason } });
-  // Towels come in no sizes, and with no category there's nothing to size.
-  if (category == null || category === "bath_towel" || category === "hand_towel") return { size: null };
+  // Some things come in no sizes, and with no category there's nothing to size.
+  if (category == null || UNSIZED.includes(category)) return { size: null };
 
   let rest = text;
   const found: string[] = [];
-  for (const [re, name] of OTHER_SIZES) {
-    if (has(rest, new RegExp(re.source))) found.push(name);
-    rest = rest.replace(re, " ");
+  for (const rule of SIZES) {
+    if (rule.only && !rule.only.includes(category)) continue;
+    if (has(rest, rule.pattern)) found.push(rule.name);
+    rest = rest.replace(globally(rule.pattern), " ");
   }
-  for (const [re, name] of BED_SIZES) {
-    if (has(rest, new RegExp(re.source))) found.push(name);
-  }
-  // On a sheet, "standard" is a sales word ("hotel standard"), not a size.
-  const sizes = [...new Set(found)].filter((s) => category === "pillowcase" || s !== "standard");
+  const sizes = [...new Set(found)];
 
   if (sizes.length === 0) return unknown("the size isn't in the title");
   if (sizes.length > 1) return unknown(`the title lists more than one size (${list(sizes)})`);
 
   const only = sizes[0];
-  if (category === "pillowcase") {
-    if (only === "standard") return { size: "standard" };
-    if (only === "king") return { size: "king_pillow" };
-    return unknown(`${only} isn't a pillowcase size we track`);
-  }
-  if (only === "twin" || only === "full" || only === "queen" || only === "king") return { size: only };
-  return unknown(`${only} isn't a size we track`);
+  const pillowcase = category === "pillowcase";
+  const size = (pillowcase ? SIZE_MEANS.pillowcase : SIZE_MEANS.bed)[only];
+  if (size) return { size };
+  return unknown(pillowcase ? `${only} isn't a pillowcase size we track` : `${only} isn't a size we track`);
 }
 
 // ---------- title: color ----------
 
-const COLORS_WE_TRACK: [RegExp, Color][] = [
-  [/\b(?:ivory|cream|ecru|off[\s-]?white)\b/g, "ivory"],
-  [/\bwhite\b/g, "white"],
-  [/\bgr[ae]y\b/g, "gray"],
-];
-
-const OTHER_COLORS =
-  /\b(black|blue|navy|red|pink|green|sage|beige|tan|taupe|brown|yellow|gold|purple|lavender|lilac|burgundy|maroon|teal|aqua|turquoise|orange|coral|charcoal|silver|khaki|mint|blush|multi[\s-]?colou?r(?:ed)?|assorted|colou?rs)\b/g;
+const OTHER_COLOR = new RegExp(String.raw`\b(${OTHER_COLORS.join("|")})\b`, "g");
 
 function parseColor(text: string): { color: Color | null; issue?: ListingIssue } {
   const unknown = (reason: string) => ({ color: null, issue: { field: "color" as const, reason } });
 
   let rest = text;
-  const found: string[] = [];
-  // Order matters: "off white" has to be taken out before "white" is looked for.
-  for (const [re, name] of COLORS_WE_TRACK) {
-    if (has(rest, new RegExp(re.source))) found.push(name);
-    rest = rest.replace(re, " ");
+  const ours: Color[] = [];
+  for (const rule of COLORS) {
+    if (has(rest, rule.pattern)) ours.push(rule.means);
+    rest = rest.replace(globally(rule.pattern), " ");
   }
-  for (const m of rest.matchAll(OTHER_COLORS)) found.push(m[1].replace(/colou?rs?$/, "color").replace(/[\s-]/g, ""));
-  const colors = [...new Set(found)];
+  const theirs = [...rest.matchAll(OTHER_COLOR)].map((m) => m[1].replace(/colou?rs?$/, "color").replace(/[\s-]/g, ""));
+  const colors = [...new Set<string>([...ours, ...theirs])];
 
   if (colors.length === 0) return unknown("the color isn't in the title");
   if (colors.length > 1) return unknown(`the title lists more than one color (${list(colors)})`);
-  const only = colors[0];
-  if (only === "white" || only === "ivory" || only === "gray") return { color: only };
-  return unknown(`it's ${only}, not a color we track`);
+  if (ours.length === 1) return { color: ours[0] };
+  return unknown(`it's ${colors[0]}, not a color we track`);
 }
 
 // ---------- title: material ----------
-
-const OTHER_MATERIALS: [RegExp, string][] = [
-  [/\bbamboo\b/, "bamboo"],
-  [/\b(?:100% |pure |flax |french |belgian )linen\b/, "linen"],
-  [/\bsilk\b/, "silk"],
-  [/\bsatin\b/, "satin"],
-  [/\bflannel\b/, "flannel"],
-  [/\bjersey\b/, "jersey"],
-  [/\btencel\b|\blyocell\b|\bmodal\b|\brayon\b|\bviscose\b/, "rayon"],
-  [/\bvelour\b/, "velour"],
-  [/\bwaffle\b/, "waffle weave"],
-  [/\bfleece\b|\bsherpa\b/, "fleece"],
-  [/\bmuslin\b|\bgauze\b/, "muslin"],
-];
-
-const BLEND =
-  /\bpoly(?:ester)?\s?[-/ ]?\s?cotton\b|\bcotton\s?[-/ ]?\s?poly(?:ester)?\b|\bpolycotton\b|\bcotton[\s-]?(?:rich|blend)\b|\bblend(?:ed)?\b|\bcvc\b|\b[1-9]0\s?\/\s?[1-9]0\b|\b[1-9]5\s?\/\s?[1-9]5\b/;
 
 function parseMaterial(
   text: string,
   negated: string[],
   category: Category | null,
-): { material: Material | null; issue?: ListingIssue } {
+): { material: Material | null; issue?: ListingIssue; caution?: ListingCaution } {
   const unknown = (reason: string) => ({ material: null, issue: { field: "material" as const, reason } });
 
-  const others = OTHER_MATERIALS.filter(([re]) => has(text, re)).map(([, name]) => name);
-  const poly = has(text, /\bpoly(?:ester)?\b/);
-  // Cotton and polyester anywhere in the same title is a blend, however it's
-  // written: "60% cotton 40% poly", "cotton/polyester", "poly cotton".
-  const blend = has(text, BLEND) || (poly && has(text, /\bcotton\b/));
+  const others = OTHER_MATERIALS.filter((o) => has(text, o.pattern)).map((o) => o.name);
+  const cotton = has(text, COTTON);
+  const poly = has(text, POLYESTER);
+  const blend = BLENDS.some((b) => has(text, b.pattern)) || (poly && cotton);
   // Polyester on its own, not as half of a poly-cotton blend.
   if (!blend && poly) others.push("polyester");
   if (others.length > 0) return unknown(`it's ${list(others)}, which isn't a material we track`);
 
   // What it's made of beats how it's woven: a poly-cotton percale is a blend.
-  if (has(text, /\bmicro\s?-?\s?fib(?:er|re)\b/)) return { material: "microfiber" };
+  if (has(text, MICROFIBER)) return { material: "microfiber" };
   if (blend) return { material: "poly_cotton" };
 
-  const weaves: Material[] = [];
-  if (has(text, /\bpercale\b/)) weaves.push("percale");
-  if (has(text, /\bsateen\b/)) weaves.push("sateen");
-  if (has(text, /\bterry(?:\s?cloth)?\b/)) weaves.push("cotton_terry");
-  if (weaves.length === 1) return { material: weaves[0] };
+  const weaves = WEAVES.filter((w) => has(text, w.pattern));
+  if (weaves.length === 1) {
+    const material = weaves[0].means;
+    const fiberMissing = WEAVES_NEEDING_FIBER.includes(material) && !cotton;
+    return fiberMissing ? { material, caution: FIBER_NOT_STATED } : { material };
+  }
   if (weaves.length > 1) {
-    const names = weaves.map((w) => (w === "cotton_terry" ? "terry" : w));
-    return unknown(`the title mentions more than one material (${list(names)})`);
+    return unknown(`the title mentions more than one material (${list(weaves.map((w) => w.name))})`);
   }
 
-  const not = negated.filter((n) => /percale|sateen|terry|microfib|cotton/.test(n));
+  const not = negated.filter((n) => MATERIAL_WORDS.test(n));
   if (not.length > 0) return unknown(`the title says it's not ${list(not)}, but not what it is`);
 
-  if (has(text, /\bcotton\b/)) {
-    const towel = category === "bath_towel" || category === "hand_towel";
-    return unknown(
-      towel ? "it says cotton, but not whether it's terry" : "it says cotton, but not whether it's percale or sateen",
-    );
+  if (cotton) {
+    const implied = category ? COTTON_MEANS[category] : undefined;
+    if (implied) return { material: implied };
+    return unknown("it says cotton, but not whether it's percale or sateen");
   }
   return unknown("the material isn't in the title");
 }
 
 // ---------- title: thread count ----------
 
-const THREAD_COUNT = [
-  /\b(\d{3,4})\s?-?\s?(?:tc|thread[\s-]?count|thread|t\/c)\b/g,
-  /\b(?:tc|thread[\s-]?count)\s?-?\s?(\d{3,4})\b/g,
-  // Hotel linen shorthand: T-180, T200, T250.
-  /\bt-?(\d{3})\b/g,
-];
-
 function parseThreadCount(text: string): { threadCount: number | null; rest: string } {
   const found = new Set<number>();
   let rest = text;
-  for (const re of THREAD_COUNT) {
-    for (const m of rest.matchAll(re)) {
+  for (const { pattern } of THREAD_COUNTS) {
+    for (const m of rest.matchAll(globally(pattern))) {
       const n = Number(m[1]);
-      if (n >= 100 && n <= 1500) found.add(n);
+      if (n >= THREAD_COUNT_RANGE.min && n <= THREAD_COUNT_RANGE.max) found.add(n);
     }
-    rest = rest.replace(re, " ");
+    rest = rest.replace(globally(pattern), " ");
   }
   // Two different numbers means we don't know which one applies.
   return { threadCount: found.size === 1 ? [...found][0] : null, rest };
@@ -316,53 +238,40 @@ function parseThreadCount(text: string): { threadCount: number | null; rest: str
 
 // ---------- title: lot size ----------
 
-const N = String.raw`(\d{1,4}|${Object.keys(NUMBER_WORDS).join("|")})`;
+const COUNT = String.raw`(\d{1,4}|${Object.keys(NUMBER_WORDS).join("|")})`;
+const DIGITS = String.raw`(\d{1,3})`;
+
+const LOT_PATTERNS = LOT_PHRASES.map((p) => ({
+  ...p,
+  pattern: new RegExp(p.phrase.replaceAll("{N}", COUNT).replaceAll("{D}", DIGITS), "g"),
+}));
+
+const MULTIPACK = new RegExp(String.raw`\b(?:${MULTIPACK_HINTS.join("|")})\b`);
 
 function toNumber(raw: string | undefined): number | null {
   if (!raw) return null;
   const n = raw in NUMBER_WORDS ? NUMBER_WORDS[raw] : Number(raw);
-  return Number.isInteger(n) && n >= 1 && n <= 1000 ? n : null;
+  return Number.isInteger(n) && n >= 1 && n <= MAX_LOT_SIZE ? n : null;
 }
 
 function parseLotSize(text: string): { lotSize: number | null; issue?: ListingIssue } {
-  // Numbers that are measurements, not counts.
-  let rest = text
-    .replace(/\b\d+(?:\.\d+)?\s?(?:"|''|in|inch|inches|cm)?\s?[x×]\s?\d+(?:\.\d+)?\s?(?:"|''|in|inch|inches|cm)?(?:\s?[x×]\s?\d+(?:\.\d+)?)?/g, " ")
-    .replace(/\b\d+(?:\.\d+)?\s?(?:lbs?|pounds?|oz|#)\s?(?:\/|per)?\s?(?:dz|doz|dozen)?\b/g, " ")
-    .replace(/\b\d+(?:\.\d+)?\s?(?:gsm|g\/m2|%|percent|inch(?:es)?|in\b|"|cm|mm|series)/g, " ")
-    .replace(/\b\d+\s?\/\s?\d+\b/g, " ") // 50/50 blends
-    .replace(/\bpillow\s?-?\s?cases?\b/g, " pillowcases "); // so "case" below means a case of goods
-  rest = ` ${rest.replace(/\s+/g, " ")} `;
+  let rest = text;
+  for (const { pattern } of NOT_COUNTS) rest = rest.replace(globally(pattern), " ");
+  // So "case" below means a case of goods, never a pillow case.
+  const pillowcase = KINDS.find((k) => k.means === "pillowcase")!.all[0];
+  rest = ` ${rest.replace(globally(pillowcase), " pillowcases ").replace(/\s+/g, " ")} `;
 
   const found: number[] = [];
-  /** Record every match of `re`, then blank it so a later pattern can't count it twice. */
-  const take = (re: RegExp, value: (m: RegExpMatchArray) => number | null) => {
-    rest = rest.replace(re, (...args) => {
-      const n = value(args as unknown as RegExpMatchArray);
-      if (n != null && n >= 1 && n <= 1000) found.push(n);
+  for (const { pattern, times } of LOT_PATTERNS) {
+    // Record every match, then blank it so a later phrase can't count it twice.
+    rest = rest.replace(pattern, (...args) => {
+      const written = typeof args[1] === "string" ? args[1] : undefined;
+      // A number too big to be a count ("2019 sheets") isn't one.
+      const n = written ? toNumber(written) : 1;
+      if (n != null && n * times <= MAX_LOT_SIZE) found.push(n * times);
       return " ";
     });
-  };
-
-  take(/\bhalf (?:a )?(?:dozen|doz|dz)\b/g, () => 6);
-  take(new RegExp(String.raw`\b(?:${N}|a)? ?(?:dozens?|doz|dz)\b`, "g"), (m) => (toNumber(m[1]) ?? 1) * 12);
-  take(new RegExp(String.raw`\b(?:${N} )?pairs?\b`, "g"), (m) => (toNumber(m[1]) ?? 1) * 2);
-  take(
-    new RegExp(String.raw`\b(?:lots?|packs?|sets?|cases?|box|bundle|bag|bale|qty|quantity)\s?(?:of\s)?[:#]?\s?${N}\b`, "g"),
-    (m) => toNumber(m[1]),
-  );
-  take(
-    new RegExp(String.raw`\b${N}\s?[-/]?\s?(?:packs?|pk|pcs?|pieces?|count|ct|ea|each|units?)\b`, "g"),
-    (m) => toNumber(m[1]),
-  );
-  // "12 white queen flat sheets", "2 pillowcases".
-  take(
-    new RegExp(String.raw`\b${N} (?:[a-z-]+ ){0,8}?(?:sheets|pillowcases|towels|covers)\b`, "g"),
-    (m) => toNumber(m[1]),
-  );
-  take(/(?:^|\s)x\s?(\d{1,3})(?=\s|$)/g, (m) => toNumber(m[1]));
-  take(/\b(\d{1,3})\s?x(?=\s|$)/g, (m) => toNumber(m[1]));
-  take(/\bsingle\b/g, () => 1);
+  }
 
   const counts = [...new Set(found)];
   if (counts.length === 1) return { lotSize: counts[0] };
@@ -373,7 +282,7 @@ function parseLotSize(text: string): { lotSize: number | null; issue?: ListingIs
     };
   }
   // No number, but it reads like more than one: we can't price a unit.
-  if (has(rest, /\b(?:lots?|bulk|wholesale|cases?|bundles?|multi[\s-]?packs?|packs?|sets?)\b/)) {
+  if (MULTIPACK.test(rest)) {
     return {
       lotSize: null,
       issue: { field: "lotSize", reason: "it looks like a multi-pack, but the count isn't in the title" },
@@ -387,8 +296,10 @@ function parseLotSize(text: string): { lotSize: number | null; issue?: ListingIs
 export function parseTitle(title: string): ParsedTitle {
   const { text, negated } = prepare(title);
   const issues: ListingIssue[] = [];
-  const note = <T extends { issue?: ListingIssue }>(r: T): T => {
+  const cautions: ListingCaution[] = [];
+  const note = <T extends { issue?: ListingIssue; caution?: ListingCaution }>(r: T): T => {
     if (r.issue) issues.push(r.issue);
+    if (r.caution) cautions.push(r.caution);
     return r;
   };
 
@@ -399,7 +310,7 @@ export function parseTitle(title: string): ParsedTitle {
   const { threadCount, rest } = parseThreadCount(text);
   const { lotSize } = note(parseLotSize(rest));
 
-  return { category, size, color, material, threadCount, lotSize, issues };
+  return { category, size, color, material, threadCount, lotSize, issues, cautions };
 }
 
 // ---------- structured fields ----------
@@ -501,6 +412,7 @@ export function toRawListing(item: EbayItemSummary): Parsed {
       lotsAvailable: 1,
       shippingCents: shipping,
       parseIssues: issues,
+      cautions: title.cautions,
     },
   };
 }

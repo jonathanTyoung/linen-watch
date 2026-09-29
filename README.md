@@ -45,16 +45,20 @@ Then, in this order:
 
 1. `npm run ebay:check`. Its second line says whether eBay lets this app search at all. eBay's docs disagree on whether production search needs partner approval, so this is the test. It also confirms the category ids in `src/engine/sources/ebay/config.ts`; fix any it flags there.
 2. **Settings → Ship to ZIP code**: set J&N's ZIP. eBay quotes shipping to it, and shipping counts toward the price per unit.
-3. **Settings → Scan every**: set 900 (15 minutes). eBay allows about 5,000 calls a day and a scan can use up to 20; Settings warns below 10 minutes.
+3. **Settings → Scan every**: set 900 (15 minutes). A scan can use up to 20 eBay calls; Settings warns below 10 minutes.
 4. `LINEN_SOURCES=ebay npm run worker -- --once`, then `npm run ebay:report` to see how well titles are being read.
 
 How eBay listings are handled:
 
 - **One search per active spec**, newest listings first, up to 400 per spec per scan. US dollars, fixed price, shipped to and from the US.
+- **A daily call limit, enforced.** Every call to eBay is counted per day (Central time) in the database, so the worker and *Scan now* draw on the same count. At the limit (Settings, 4,000 by default; eBay itself allows about 5,000) eBay scanning stops until midnight. The scan log says so once, Settings shows it for the rest of the day, and everything else carries on.
 - **What the item is comes from the seller's title**, so the reader is strict. Anything it can't be sure of (a sheet set, two sizes in one title, a multi-pack with no count, shipping eBay didn't give) is left unknown, and **a listing with anything unknown never matches**. It lands in Queue → Not a match with the reason. Unknown shipping is never treated as free.
+- **"Fiber not stated."** A title that says percale or sateen but not what it's made of still matches, since that's how most are written, but the card carries a warning: hotel percale is often a poly-cotton blend. Check the listing before approving.
+- **Tuning the reader** means editing one file, `src/engine/sources/ebay/vocabulary.ts`: every size, color, material and lot-size phrase it knows, each with an example title that's run as a test.
 - **One lot per listing.** eBay's search doesn't say how many a seller has, so the agent proposes one lot. More may be available on eBay.
 - **No seller details are stored**, only item data. That's what lets the app opt out of eBay's account-deletion notifications ("not persisting eBay data").
-- **Listing data is kept fresh.** At the end of each scan, eBay listings that came to nothing (not a match, expired, skipped) and haven't shown up in a search for 24 hours are deleted, along with the activity entries that quote them. Anything tied to an order is kept. An approval that expired unbought is kept for 7 days so a late *I bought it* can still be recorded.
+- **Listing data is kept fresh.** At the end of each scan, eBay listings that came to nothing (not a match, blocked, expired, skipped) and haven't shown up in a search for 24 hours are deleted, along with the activity entries that quote them. Anything tied to an order is kept. An approval that expired unbought is kept for 7 days so a late *I bought it* can still be recorded. The 24 hours is a compliance rule, so it's a constant (`EBAY_DATA_MAX_AGE_HOURS`), not a setting.
+- **Skipped stays skipped.** When someone skips an eBay listing, its item id and the time are remembered (nothing else) for 30 days (Settings), and the agent won't queue that listing again even after its row has been cleaned up.
 - **Conditions:** eBay's New is new. "New other" and "Like New" are like new ("New other" can be a factory second). New with defects, refurbished and every grade of used are used. "For parts" never matches.
 
 ## Demo script (for Nick and Jake)
@@ -104,8 +108,10 @@ runScan ──► each enabled source adapter ──► listings (upserted by so
 | `src/engine/purchasing.ts` | Approve / skip / mark-purchased, shared by every UI path |
 | `src/engine/holds.ts` | Money held against the weekly cap by in-flight and approved-but-unbought orders |
 | `src/engine/sources/` | Source adapter interface, mock adapters, registry, and which sources are on (`selection.ts`) |
-| `src/engine/sources/ebay/` | eBay: sign-in, API client, title reader (`parse.ts`), adapter, settings in `config.ts`, saved responses in `__fixtures__/` |
+| `src/engine/sources/ebay/` | eBay: sign-in, API client, title reader (`parse.ts`) and the words it knows (`vocabulary.ts`), adapter, fixed values in `config.ts`, saved responses in `__fixtures__/` |
 | `src/engine/cleanup.ts` | Deletes stale marketplace listings at the end of each scan |
+| `src/engine/api-calls.ts` | The daily allowance for calling an outside API |
+| `src/engine/skips.ts` | Remembers skipped marketplace listings so they aren't queued again |
 | `src/db/schema.ts` | Drizzle schema (single source of truth) |
 | `drizzle/` | Generated SQL migrations, applied on boot |
 | `src/data/loaders.ts` | Read-side queries for the pages |

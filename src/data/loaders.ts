@@ -13,9 +13,10 @@ import {
   type Spec,
 } from "@/db/schema";
 import { orderCost } from "@/engine/decide";
+import { callsOn, limitReachedMessage } from "@/engine/api-calls";
 import { heldCents } from "@/engine/holds";
 import { EBAY_CALLS_PER_SCAN, EBAY_DAILY_CALL_LIMIT, EBAY_MIN_SCAN_SECONDS, EBAY_SUGGESTED_SCAN_SECONDS } from "@/engine/sources/ebay/config";
-import { ebayActive, sourceStatus } from "@/engine/sources/selection";
+import { EBAY_SOURCE_ID, ebayActive, sourceStatus } from "@/engine/sources/selection";
 import {
   getSettings,
   recentEvents,
@@ -200,21 +201,26 @@ export async function loadOrders() {
 export async function loadSettings() {
   await connection();
   const db = getDb();
+  const settings = getSettings(db);
+  const callsToday = callsOn(db, EBAY_SOURCE_ID, new Date()).calls;
   return {
-    settings: getSettings(db),
+    settings,
     sources: db
       .select()
       .from(sources)
       .all()
       .map((s) => ({ ...s, status: sourceStatus(s.id) })),
-    /** Set when scans call eBay, which only allows so many calls a day. */
-    ebay: ebayActive()
-      ? {
-          minScanSeconds: EBAY_MIN_SCAN_SECONDS,
-          suggestedScanSeconds: EBAY_SUGGESTED_SCAN_SECONDS,
-          callsPerScan: EBAY_CALLS_PER_SCAN,
-          dailyCallLimit: EBAY_DAILY_CALL_LIMIT,
-        }
-      : null,
+    ebay: {
+      /** True when scans call eBay. */
+      active: ebayActive(),
+      minScanSeconds: EBAY_MIN_SCAN_SECONDS,
+      suggestedScanSeconds: EBAY_SUGGESTED_SCAN_SECONDS,
+      callsPerScan: EBAY_CALLS_PER_SCAN,
+      /** What eBay itself allows. Our own budget should stay under it. */
+      ebayCallLimit: EBAY_DAILY_CALL_LIMIT,
+      callsToday,
+      /** Set once today's budget is used up. */
+      stopped: callsToday >= settings.ebayDailyCallBudget ? limitReachedMessage("eBay", settings.ebayDailyCallBudget) : null,
+    },
   };
 }

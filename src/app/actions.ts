@@ -213,6 +213,8 @@ const settingsSchema = z.object({
   scanIntervalSeconds: z.coerce.number().int().min(10, "At least 10 seconds").max(3600, "At most an hour"),
   notifyPhone: z.string().trim().max(30),
   shipToZip: z.string().trim().regex(/^\d{5}$/, "Enter a 5-digit ZIP code like 37203"),
+  ebayDailyCallBudget: z.coerce.number().int("Whole calls only").min(1, "At least 1").max(100000, "At most 100,000"),
+  skipSuppressionDays: z.coerce.number().int("Whole days only").min(1, "At least 1 day").max(365, "At most a year"),
 });
 
 export async function saveSettings(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -226,6 +228,8 @@ export async function saveSettings(_prev: FormState, fd: FormData): Promise<Form
     scanIntervalSeconds: String(fd.get("scanIntervalSeconds") ?? ""),
     notifyPhone: String(fd.get("notifyPhone") ?? ""),
     shipToZip: String(fd.get("shipToZip") ?? ""),
+    ebayDailyCallBudget: String(fd.get("ebayDailyCallBudget") ?? ""),
+    skipSuppressionDays: String(fd.get("skipSuppressionDays") ?? ""),
   });
   if (!parsed.success) return { errors: fieldErrors(parsed.error), message: "Fix the highlighted fields." };
   const v = parsed.data;
@@ -246,6 +250,8 @@ export async function saveSettings(_prev: FormState, fd: FormData): Promise<Form
       scanIntervalSeconds: v.scanIntervalSeconds,
       notifyPhone: v.notifyPhone || null,
       shipToZip: v.shipToZip,
+      ebayDailyCallBudget: v.ebayDailyCallBudget,
+      skipSuppressionDays: v.skipSuppressionDays,
     })
     .where(eq(settingsTable.id, 1))
     .run();

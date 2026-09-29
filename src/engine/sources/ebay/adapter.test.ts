@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SEED_SPECS } from "@/db/seed";
+import { UNLIMITED } from "../../api-calls";
 import error429 from "./__fixtures__/error-429.json";
 import { fakeEbay, json, TEST_KEYS, type Override } from "./__fixtures__/fake-ebay";
 import tokenError from "./__fixtures__/token-error.json";
@@ -39,6 +40,7 @@ function setup(override?: Override, withSpecs = specs) {
     shipToZip: "37203",
     perOrderCapCents: 30000,
     warn: (m) => warnings.push(m),
+    calls: UNLIMITED,
   };
   return { ebay, adapter, ctx, warnings };
 }
@@ -172,6 +174,8 @@ describe("eBay adapter", () => {
       lotsAvailable: 1,
       shippingCents: 1200,
       parseIssues: [],
+      // "T-250 Percale" doesn't say what it's made of.
+      cautions: [{ label: "Fiber not stated", detail: expect.any(String) }],
     });
   });
 
@@ -211,7 +215,7 @@ describe("eBay adapter", () => {
     for (const l of listings) {
       expect(Object.keys(l).sort()).toEqual(
         [
-          "category", "color", "condition", "externalId", "lotPriceCents", "lotSize", "lotsAvailable",
+          "category", "cautions", "color", "condition", "externalId", "lotPriceCents", "lotSize", "lotsAvailable",
           "material", "parseIssues", "shippingCents", "size", "threadCount", "title", "url",
         ],
       );
@@ -333,6 +337,41 @@ describe("eBay adapter", () => {
       expect(warnings).toEqual([
         "Stopped at 20 calls for this scan, so some results weren't read. The rest will be picked up on later scans.",
       ]);
+    });
+
+    describe("with a daily allowance", () => {
+      const allowance = (n: number) => {
+        let left = n;
+        return {
+          take: () => left > 0 && left-- > 0,
+          get remaining() {
+            return left;
+          },
+        };
+      };
+
+      it("takes every call, lookups included, from the day's allowance", async () => {
+        const calls = allowance(100);
+        const { ebay, adapter, ctx } = setup();
+        await adapter.fetchListings({ ...ctx, calls });
+        expect(ebay.browseCalls()).toHaveLength(9); // 7 searches + 2 lookups
+        expect(calls.remaining).toBe(91);
+      });
+
+      it("stops when the day runs out mid-scan, and keeps what it has", async () => {
+        const { ebay, adapter, ctx, warnings } = setup();
+        const listings = await adapter.fetchListings({ ...ctx, calls: allowance(3) });
+        expect(ebay.browseCalls()).toHaveLength(3);
+        expect(listings.length).toBeGreaterThan(0);
+        // The scan reports the daily stop, once. The adapter stays quiet.
+        expect(warnings).toEqual([]);
+      });
+
+      it("doesn't even sign in when there's nothing left today", async () => {
+        const { ebay, adapter, ctx } = setup();
+        expect(await adapter.fetchListings({ ...ctx, calls: allowance(0) })).toEqual([]);
+        expect(ebay.calls).toHaveLength(0);
+      });
     });
   });
 });

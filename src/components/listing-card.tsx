@@ -91,6 +91,12 @@ export function ListingCard({ item, compact = false }: { item: ListingView; comp
         </div>
       ) : null}
 
+      {item.cautions?.map((c) => (
+        <p key={c.label} role="note" className="rounded-lg border border-warn/40 bg-warn-soft px-3 py-2 text-xs text-warn">
+          <span className="font-semibold">{c.label}.</span> {c.detail}
+        </p>
+      ))}
+
       {item.note ? (
         <p className="text-xs text-muted">
           {item.note}

@@ -95,6 +95,20 @@ const CLEAN: [string, Expected][] = [
     "NEW Hotel Collection 680TC King Flat Sheet White 100% Supima Cotton Sateen",
     { category: "flat_sheet", size: "king", material: "sateen", threadCount: 680, lotSize: 1 },
   ],
+  // The common hotel pillowcase is sold as "Standard/Queen". That's our standard size.
+  ["Standard/Queen Pillowcases White Percale 2 Pack", { category: "pillowcase", size: "standard", lotSize: 2 }],
+  ["Std/Queen Pillowcases White T200 Percale Dozen", { category: "pillowcase", size: "standard", lotSize: 12 }],
+  ["Queen/Standard Pillow Cases White Cotton Percale Set of 2", { category: "pillowcase", size: "standard", lotSize: 2 }],
+  ["White Pillowcases Standard-Queen Size 20x30 Percale", { category: "pillowcase", size: "standard", lotSize: 1 }],
+  ["White Pillowcases Standard & Queen Percale Pair", { category: "pillowcase", size: "standard", lotSize: 2 }],
+  // A cotton towel is a terry towel.
+  [
+    "White Bath Towel 27x54 100% Cotton",
+    { category: "bath_towel", color: "white", material: "cotton_terry", lotSize: 1 },
+  ],
+  ["Cotton Bath Towels White Hotel Quality 6 Pack", { category: "bath_towel", material: "cotton_terry", lotSize: 6 }],
+  ["White Hand Towels 16x27 100% Cotton 12 Pack", { category: "hand_towel", material: "cotton_terry", lotSize: 12 }],
+  ["White Ring Spun Cotton Bath Towels 1 Dozen", { category: "bath_towel", material: "cotton_terry", lotSize: 12 }],
   // The mock sources' own title format keeps working.
   [
     "White Percale Queen Flat Sheet, 300TC — Lot of 12 (Like New)",
@@ -144,9 +158,14 @@ const TRICKY: [string, Expected][] = [
     "Queen Pillowcases White Percale Set of 2",
     { category: "pillowcase", size: null, unsure: { size: /queen isn't a pillowcase size/ } },
   ],
+  // "Standard/Queen" is one size on a pillowcase, but any other pairing is two.
   [
-    "Standard/Queen Pillowcases White Percale 2 Pack",
-    { category: "pillowcase", size: null, lotSize: 2, unsure: { size: /more than one size/ } },
+    "Standard/King Pillowcases White Percale 2 Pack",
+    { category: "pillowcase", size: null, lotSize: 2, unsure: { size: /more than one size \(king, standard\)/ } },
+  ],
+  [
+    "Pillowcases White Percale Standard Queen King Sizes",
+    { category: "pillowcase", size: null, unsure: { size: /more than one size/ } },
   ],
 
   // Colors.
@@ -169,10 +188,11 @@ const TRICKY: [string, Expected][] = [
     "Flat Sheet Queen White 100% Cotton 200 Thread Count",
     { material: null, threadCount: 200, lotSize: 1, unsure: { material: /percale or sateen/ } },
   ],
-  [
-    "White Bath Towel 27x54 100% Cotton",
-    { category: "bath_towel", material: null, lotSize: 1, unsure: { material: /whether it's terry/ } },
-  ],
+  // Cotton means terry on a towel, but never on a sheet, and never when
+  // the title names another weave.
+  ["White Cotton Velour Bath Towels 6 Pack", { category: "bath_towel", material: null, unsure: { material: /velour/ } }],
+  ["White Bath Towels Bamboo Cotton 4 Pack", { category: "bath_towel", material: null, unsure: { material: /bamboo/ } }],
+  ["White Hotel Bath Towels 24x50 Lot of 12", { category: "bath_towel", material: null, unsure: { material: /material isn't in the title/ } }],
   ["White Bamboo Queen Flat Sheet", { material: null, unsure: { material: /bamboo/ } }],
   ["White Satin Pillowcase Standard", { material: null, unsure: { material: /satin/ } }],
   ["White 100% Polyester Queen Flat Sheet", { material: null, unsure: { material: /polyester/ } }],
@@ -248,6 +268,38 @@ describe("parseTitle", () => {
       if (got.material == null) expect(flagged.has("material"), title).toBe(true);
       if (got.lotSize == null) expect(flagged.has("lotSize"), title).toBe(true);
     }
+  });
+});
+
+describe("fiber not stated", () => {
+  const cautions = (title: string) => parseTitle(title).cautions.map((c) => c.label);
+
+  it("flags percale or sateen that doesn't say what it's made of, without rejecting it", () => {
+    const bare = parseTitle("White Queen Flat Sheet Percale 300TC");
+    expect(bare).toMatchObject({ material: "percale", issues: [] });
+    expect(bare.cautions).toEqual([
+      {
+        label: "Fiber not stated",
+        detail: expect.stringMatching(/often poly-cotton blends. Check the listing before approving/),
+      },
+    ]);
+    expect(cautions("Lot of 12 White Queen Flat Sheets T-250 Percale Hotel Linen")).toEqual(["Fiber not stated"]);
+    expect(cautions("White King Fitted Sheet Sateen 400TC")).toEqual(["Fiber not stated"]);
+  });
+
+  it("stays quiet when the title says cotton", () => {
+    expect(cautions("White Queen Flat Sheet 100% Cotton Percale 300TC")).toEqual([]);
+    expect(cautions("White King Flat Sheet Supima Cotton Sateen 680TC")).toEqual([]);
+  });
+
+  it("stays quiet when the fiber is known some other way", () => {
+    expect(cautions("White Queen Flat Sheet 60/40 Cotton Poly Percale T180")).toEqual([]); // a blend, and read as one
+    expect(cautions("White Queen Flat Sheet Microfiber")).toEqual([]);
+    expect(cautions("White Bath Towels Terry 12 Pack")).toEqual([]); // terry is cotton terry
+  });
+
+  it("has nothing to flag when the material is unknown anyway", () => {
+    expect(parseTitle("White Queen Flat Sheet 300TC")).toMatchObject({ material: null, cautions: [] });
   });
 });
 

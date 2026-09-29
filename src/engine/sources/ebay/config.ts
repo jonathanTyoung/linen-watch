@@ -77,10 +77,19 @@ export const EBAY_MAX_SHIPPING_LOOKUPS = 8;
 export const EBAY_CALLS_PER_SCAN = 20;
 
 /**
- * eBay's default daily limit for the Browse API, per application.
+ * eBay's default daily limit for the Browse API, per application. Our own
+ * daily budget is a Settings field and should stay under this.
  * TODO(keys): read the real figure from the Analytics API (getRateLimits).
  */
 export const EBAY_DAILY_CALL_LIMIT = 5000;
+
+/**
+ * How long eBay listing data may sit here without being seen again before
+ * it's deleted. This is a compliance rule that comes from eBay's terms on
+ * data freshness, not a preference, which is why it's a constant here and
+ * not a field in Settings. Change it only if eBay's terms change.
+ */
+export const EBAY_DATA_MAX_AGE_HOURS = 24;
 
 /** Below this, a day of worst-case scans uses well over half the daily limit. Settings warns. */
 export const EBAY_MIN_SCAN_SECONDS = 10 * 60;

@@ -67,6 +67,15 @@ export interface ListingIssue {
   reason: string;
 }
 
+/**
+ * Something a person should see before approving a listing. Unlike an issue,
+ * it doesn't stop the listing from matching.
+ */
+export interface ListingCaution {
+  label: string;
+  detail: string;
+}
+
 export const LISTING_STATUSES = {
   pending: "Needs approval",
   ordering: "Ordering",

@@ -1,4 +1,5 @@
-import type { Category, Color, Condition, ListingIssue, Material, Size } from "@/lib/catalog";
+import type { Category, Color, Condition, ListingCaution, ListingIssue, Material, Size } from "@/lib/catalog";
+import type { CallLedger } from "../api-calls";
 
 /**
  * A listing as a source reports it, before we store or judge it.
@@ -26,6 +27,8 @@ export interface RawListing {
   shippingCents: number | null;
   /** What couldn't be read with confidence, and why. */
   parseIssues?: ListingIssue[] | null;
+  /** Things a person should see before approving. These don't stop a match. */
+  cautions?: ListingCaution[] | null;
 }
 
 export interface OrderContext {
@@ -58,6 +61,11 @@ export interface FetchContext extends OrderContext {
   perOrderCapCents: number;
   /** Report a problem that didn't stop the fetch (one search failed, call budget ran out). */
   warn: (message: string) => void;
+  /**
+   * The day's allowance for calling this source's API. Every call must be
+   * taken from it first, and a source must stop when it runs out.
+   */
+  calls: CallLedger;
 }
 
 export interface OrderRequest {

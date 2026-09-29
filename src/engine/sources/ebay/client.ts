@@ -1,3 +1,4 @@
+import { UNLIMITED, type CallLedger } from "../../api-calls";
 import { reason, type EbayCredentials, type TokenProvider } from "./auth";
 import { EBAY_HOSTS, EBAY_MARKETPLACE, EBAY_MAX_ATTEMPTS, EBAY_TIMEOUT_MS } from "./config";
 import type { EbayItem, EbaySearchPage } from "./types";
@@ -9,26 +10,42 @@ import type { EbayItem, EbaySearchPage } from "./types";
  * daily limit.
  */
 
-/** Counts every request sent to eBay, retries included. */
+/**
+ * Counts every request sent to eBay, retries included, against two limits:
+ * a ceiling for this one scan, and the day's allowance shared by every scan.
+ */
 export class CallBudget {
   used = 0;
-  constructor(readonly limit: number) {}
+  /** Which limit stopped us, once one has. */
+  stoppedBy: "scan" | "day" | null = null;
+
+  constructor(
+    readonly limit: number,
+    private readonly today: CallLedger = UNLIMITED,
+  ) {}
 
   get remaining(): number {
-    return Math.max(0, this.limit - this.used);
+    return Math.min(Math.max(0, this.limit - this.used), this.today.remaining);
   }
 
-  /** Spend one call. False if there are none left. */
+  /** Spend one call. False if either limit has been reached. */
   take(): boolean {
-    if (this.used >= this.limit) return false;
+    if (this.used >= this.limit) {
+      this.stoppedBy = "scan";
+      return false;
+    }
+    if (!this.today.take()) {
+      this.stoppedBy = "day";
+      return false;
+    }
     this.used++;
     return true;
   }
 }
 
 export class BudgetExhausted extends Error {
-  constructor(limit: number) {
-    super(`stopped at the limit of ${limit} eBay calls for one scan`);
+  constructor(readonly stoppedBy: "scan" | "day") {
+    super(stoppedBy === "day" ? "today's eBay call limit is reached" : "this scan's eBay call limit is reached");
     this.name = "BudgetExhausted";
   }
 }
@@ -100,7 +117,7 @@ export function createEbayClient(deps: EbayClientDeps): EbayClient {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const token = await deps.tokens.getToken();
-      if (!deps.budget.take()) throw new BudgetExhausted(deps.budget.limit);
+      if (!deps.budget.take()) throw new BudgetExhausted(deps.budget.stoppedBy ?? "scan");
 
       let res: Response;
       try {

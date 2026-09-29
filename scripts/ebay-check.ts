@@ -10,8 +10,12 @@
  *
  *   npm run ebay:check
  *
- * Read-only. Uses about 6 of the day's calls. Never prints the keys or token.
+ * Read-only. Uses about 8 calls, counted against the day's eBay limit like
+ * any other. Never prints the keys or token.
  */
+import { getDb } from "@/db/client";
+import { dailyLedger, limitReachedMessage } from "@/engine/api-calls";
+import { getSettings } from "@/engine/queries";
 import { readCredentials, createTokenProvider } from "@/engine/sources/ebay/auth";
 import { endUserContext } from "@/engine/sources/ebay/client";
 import { EBAY_CATEGORY_IDS, EBAY_DAILY_CALL_LIMIT, EBAY_HOSTS, EBAY_MARKETPLACE } from "@/engine/sources/ebay/config";
@@ -43,7 +47,15 @@ async function main() {
     process.exit(1);
   }
 
+  const db = getDb();
+  const budget = getSettings(db).ebayDailyCallBudget;
+  const calls = dailyLedger(db, "ebay", budget, new Date());
+
   const get = async (path: string) => {
+    if (!calls.take()) {
+      console.log(`\nStopped: ${limitReachedMessage("eBay", budget)}`);
+      process.exit(1);
+    }
     const res = await fetch(`${host}${path}`, {
       headers: {
         Authorization: `Bearer ${token}`,

@@ -1,7 +1,8 @@
 import { sql } from "drizzle-orm";
-import type { ListingIssue } from "@/lib/catalog";
+import type { ListingCaution, ListingIssue } from "@/lib/catalog";
 import {
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -89,6 +90,11 @@ export const listings = sqliteTable(
     /** Plain-words reasons the listing couldn't be read with confidence. */
     parseIssues: text("parse_issues", { mode: "json" }).$type<ListingIssue[]>(),
     /**
+     * Things a person should see before approving. Unlike parseIssues these
+     * don't stop a match ("fiber not stated").
+     */
+    cautions: text("cautions", { mode: "json" }).$type<ListingCaution[]>(),
+    /**
      * unmatched | pending | ordering | awaiting_checkout | purchased | rejected | blocked | expired
      *
      * `ordering` is a claim: someone (or the agent) is placing the order right
@@ -155,9 +161,42 @@ export const settings = sqliteTable("settings", {
   notifyPhone: text("notify_phone"),
   /** Where orders ship. Real sources use it to quote shipping. */
   shipToZip: text("ship_to_zip").notNull().default("37203"),
+  /** Hard stop on calls to eBay per day (Central time), across the worker and "Scan now". */
+  ebayDailyCallBudget: integer("ebay_daily_call_budget").notNull().default(4000),
+  /** A skipped listing isn't queued again for this many days. */
+  skipSuppressionDays: integer("skip_suppression_days").notNull().default(30),
   /** Crude cross-process lock so the worker and the "Scan now" button never overlap. */
   scanLockUntil: integer("scan_lock_until", { mode: "timestamp_ms" }),
 });
+
+/**
+ * Listings someone skipped, so a scan doesn't put them back in the queue
+ * after the listing row itself has been cleaned up. Deliberately just the
+ * source's item id and when: no title, price or anything else from the source.
+ */
+export const skippedItems = sqliteTable(
+  "skipped_items",
+  {
+    sourceId: text("source_id").notNull(),
+    externalId: text("external_id").notNull(),
+    skippedAt: integer("skipped_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.sourceId, t.externalId] })],
+);
+
+/** Calls made to an outside API, per day, so a daily budget holds across processes. */
+export const apiCalls = sqliteTable(
+  "api_calls",
+  {
+    api: text("api").notNull(), // ebay
+    /** Calendar day in Central time, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    calls: integer("calls").notNull().default(0),
+    /** When the day's budget was first hit. Set once, so it's reported once. */
+    limitReachedAt: integer("limit_reached_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [primaryKey({ columns: [t.api, t.day] })],
+);
 
 export const scanRuns = sqliteTable("scan_runs", {
   id: integer("id").primaryKey({ autoIncrement: true }),

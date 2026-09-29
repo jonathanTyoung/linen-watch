@@ -101,26 +101,39 @@ function NumberField({
   );
 }
 
-/** eBay's limits, passed in only when scans are calling eBay. */
-interface EbayLimits {
+/** How eBay is doing today, and the limits that apply to it. */
+interface EbayStatus {
+  active: boolean;
   minScanSeconds: number;
   suggestedScanSeconds: number;
   callsPerScan: number;
-  dailyCallLimit: number;
+  ebayCallLimit: number;
+  callsToday: number;
+  stopped: string | null;
 }
 
-/** Shown under "Scan every" when the saved interval would eat too much of eBay's daily allowance. */
-function ebayScanWarning(scanIntervalSeconds: number, ebay: EbayLimits | null): string | null {
-  if (!ebay || scanIntervalSeconds >= ebay.minScanSeconds) return null;
-  const perDay = Math.round((24 * 60 * 60) / scanIntervalSeconds) * ebay.callsPerScan;
-  const limit = ebay.dailyCallLimit.toLocaleString("en-US");
-  return `Too fast for eBay. Scanning every ${scanIntervalSeconds} seconds could make ${perDay.toLocaleString("en-US")} calls a day, and eBay allows about ${limit}. Set this to ${ebay.minScanSeconds} (${ebay.minScanSeconds / 60} minutes) or more; ${ebay.suggestedScanSeconds} (${ebay.suggestedScanSeconds / 60} minutes) is a good setting.`;
+const count = (n: number) => n.toLocaleString("en-US");
+
+/** Shown under "Scan every" when the saved interval would use up the day's eBay calls early. */
+function ebayScanWarning(settings: Settings, ebay: EbayStatus): string | null {
+  if (!ebay.active || settings.scanIntervalSeconds >= ebay.minScanSeconds) return null;
+  const perDay = Math.round((24 * 60 * 60) / settings.scanIntervalSeconds) * ebay.callsPerScan;
+  return `Too fast for eBay. Scanning every ${settings.scanIntervalSeconds} seconds could make ${count(perDay)} calls a day, and the daily limit is ${count(settings.ebayDailyCallBudget)}, so eBay scanning would stop partway through the day. Set this to ${ebay.minScanSeconds} (${ebay.minScanSeconds / 60} minutes) or more; ${ebay.suggestedScanSeconds} (${ebay.suggestedScanSeconds / 60} minutes) is a good setting.`;
 }
 
-export function SettingsForm({ settings, ebay }: { settings: Settings; ebay: EbayLimits | null }) {
+/** Shown under the daily limit: today's stop if there is one, or a limit set higher than eBay allows. */
+function ebayBudgetWarning(settings: Settings, ebay: EbayStatus): string | null {
+  if (ebay.stopped) return ebay.stopped;
+  if (settings.ebayDailyCallBudget > ebay.ebayCallLimit) {
+    return `eBay itself allows about ${count(ebay.ebayCallLimit)} calls a day. Above that, eBay will start refusing requests.`;
+  }
+  return null;
+}
+
+export function SettingsForm({ settings, ebay }: { settings: Settings; ebay: EbayStatus }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSettings, {});
   const e = state.errors ?? {};
-  const scanWarning = ebayScanWarning(settings.scanIntervalSeconds, ebay);
+  const scanWarning = ebayScanWarning(settings, ebay);
 
   return (
     <form
@@ -155,7 +168,7 @@ export function SettingsForm({ settings, ebay }: { settings: Settings; ebay: Eba
           id="scanIntervalSeconds"
           label="Scan every"
           hint={
-            ebay
+            ebay.active
               ? `How often the worker checks sources. With eBay on, use ${ebay.suggestedScanSeconds} (${ebay.suggestedScanSeconds / 60} minutes).`
               : "How often the worker checks sources. Real sources would be minutes to hours."
           }
@@ -179,6 +192,23 @@ export function SettingsForm({ settings, ebay }: { settings: Settings; ebay: Eba
           error={e.checkoutExpiryHours}
           value={settings.checkoutExpiryHours}
           unit="hours"
+        />
+        <NumberField
+          id="ebayDailyCallBudget"
+          label="eBay calls per day, at most"
+          hint={`Used today: ${count(ebay.callsToday)}. When the limit is reached, eBay scanning stops until midnight Central. Covers the worker and Scan now.`}
+          error={e.ebayDailyCallBudget}
+          warning={ebayBudgetWarning(settings, ebay)}
+          value={settings.ebayDailyCallBudget}
+          unit="calls"
+        />
+        <NumberField
+          id="skipSuppressionDays"
+          label="Don't bring back skipped listings for"
+          hint="When someone skips an eBay listing, the agent won't queue that same listing again for this long."
+          error={e.skipSuppressionDays}
+          value={settings.skipSuppressionDays}
+          unit="days"
         />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="shipToZip" className="text-sm font-medium">

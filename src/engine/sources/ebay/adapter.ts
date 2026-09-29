@@ -107,7 +107,9 @@ export function createEbayAdapter(deps: EbayAdapterDeps = {}): SourceAdapter {
       if (!creds) throw new Error("eBay API keys are missing (EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)");
 
       const tokens = deps.tokens ?? tokenProviderFor(creds);
-      const budget = new CallBudget(EBAY_CALLS_PER_SCAN);
+      // Nothing left today: don't even sign in.
+      if (ctx.calls.remaining === 0) return [];
+      const budget = new CallBudget(EBAY_CALLS_PER_SCAN, ctx.calls);
       const client = createEbayClient({
         creds,
         tokens,
@@ -183,7 +185,9 @@ export function createEbayAdapter(deps: EbayAdapterDeps = {}): SourceAdapter {
         }
       }
 
-      if (outOfBudget) {
+      // Running out for the day is reported by the scan, once. Running out
+      // for this scan is ours to report.
+      if (outOfBudget && budget.stoppedBy === "scan") {
         ctx.warn(
           `Stopped at ${EBAY_CALLS_PER_SCAN} calls for this scan, so some results weren't read. The rest will be picked up on later scans.`,
         );

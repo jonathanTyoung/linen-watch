@@ -3,10 +3,12 @@ import type { DB, Queryable } from "@/db/client";
 import { listings, orders, sources, specs, type Listing, type Source, type Spec } from "@/db/schema";
 import { actorLabel, type Person } from "@/lib/catalog";
 import { formatCents } from "@/lib/money";
+import { keepsOnlyFreshData } from "./cleanup";
 import { approvalBlocker, heldNote, orderCost, planOrder, type OrderSize } from "./decide";
 import { heldCents, interruptedNote, releaseStaleHolds, unitsHeldBySpec } from "./holds";
 import { isKnown } from "./match";
 import { getSettings, logEvent, unitsOwnedBySpec, weekSpendCents } from "./queries";
+import { recordSkip } from "./skips";
 import { getAdapter, type OrderResult } from "./sources";
 
 export type ActionResult =
@@ -225,7 +227,13 @@ export async function placeClaimedOrder(
   };
 }
 
-export function rejectListing(db: DB, listingId: number, actor: Person): ActionResult {
+export function rejectListing(
+  db: DB,
+  listingId: number,
+  actor: Person,
+  opts: { now?: Date } = {},
+): ActionResult {
+  const now = opts.now ?? new Date();
   return db.transaction((tx): ActionResult => {
     const listing = tx.select().from(listings).where(eq(listings.id, listingId)).get();
     if (!listing) return { ok: false, message: "That listing no longer exists." };
@@ -241,11 +249,16 @@ export function rejectListing(db: DB, listingId: number, actor: Person): ActionR
         status: "rejected",
         note: wasCheckout ? `${who} didn't complete checkout` : `Skipped by ${who}`,
         decidedBy: actor,
-        decidedAt: new Date(),
+        decidedAt: now,
       })
       .where(and(eq(listings.id, listing.id), inArray(listings.status, ["pending", "awaiting_checkout"])))
       .run().changes;
     if (changed !== 1) return { ok: false, message: HANDLED };
+    // A marketplace listing's row gets cleaned up once it's stale. Remember
+    // the skip on its own so the listing isn't queued again if it comes back.
+    if (!wasCheckout && keepsOnlyFreshData(listing.sourceId)) {
+      recordSkip(tx, listing.sourceId, listing.externalId, now);
+    }
     logEvent(tx, {
       type: "rejected",
       actor,

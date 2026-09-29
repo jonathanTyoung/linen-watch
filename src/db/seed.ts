@@ -145,6 +145,8 @@ export const DEFAULT_SETTINGS: typeof schema.settings.$inferInsert = {
   notifyPhone: "(615) 555-0142",
   // Placeholder (Nashville) until Nick confirms J&N's ZIP.
   shipToZip: "37203",
+  ebayDailyCallBudget: 4000,
+  skipSuppressionDays: 30,
 };
 
 /**

@@ -13,6 +13,8 @@ import {
   type Spec,
 } from "@/db/schema";
 import { formatCents } from "@/lib/money";
+import { formatDate } from "@/lib/time";
+import { dailyLedger, limitReachedMessage, UNLIMITED, type DailyLedger } from "./api-calls";
 import { removeStaleListings } from "./cleanup";
 import { decide, type OrderSize } from "./decide";
 import { heldCents, releaseStaleHolds, unitsHeldBySpec } from "./holds";
@@ -20,7 +22,8 @@ import { findMatch } from "./match";
 import { placeClaimedOrder } from "./purchasing";
 import { getSettings, logEvent, unitsOwnedBySpec, weekSpendCents } from "./queries";
 import { getAdapter, type RawListing } from "./sources";
-import { sourceStatus } from "./sources/selection";
+import { EBAY_SOURCE_ID, sourceStatus } from "./sources/selection";
+import { forgetOldSkips, skippedWithin } from "./skips";
 
 export interface ScanOptions {
   trigger: "manual" | "worker";
@@ -141,6 +144,9 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
       .all()
       .filter((s) => sourceStatus(s.id).active);
 
+    /** Sources left alone this scan because their daily call limit is used up. */
+    const paused: string[] = [];
+
     // 2. Each source independently; one failing source doesn't stop the rest.
     for (const source of enabledSources) {
       const adapter = getAdapter(source.id);
@@ -148,6 +154,20 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
         errors.push(`No adapter registered for ${source.name}`);
         continue;
       }
+
+      // eBay only allows so many calls a day. Once today's are spent the
+      // source is left alone: said loudly the first time, quietly after.
+      const ledger: DailyLedger | null =
+        source.id === EBAY_SOURCE_ID ? dailyLedger(db, source.id, settings.ebayDailyCallBudget, now) : null;
+      const reportLimit = () => {
+        if (ledger?.markReached()) errors.push(`${source.name}: ${limitReachedMessage(source.name, ledger.budget)}`);
+      };
+      if (ledger && ledger.remaining === 0) {
+        reportLimit();
+        paused.push(source.name);
+        continue;
+      }
+
       let raw: RawListing[];
       try {
         raw = await adapter.fetchListings({
@@ -157,11 +177,13 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
           shipToZip: settings.shipToZip,
           perOrderCapCents: settings.perOrderCapCents,
           warn: (message) => errors.push(`${source.name}: ${message}`),
+          calls: ledger ?? UNLIMITED,
         });
       } catch (err) {
         errors.push(`${source.name}: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
+      if (ledger && ledger.remaining === 0) reportLimit();
       renewLock(db);
       counts.sourcesChecked++;
       counts.listingsSeen += raw.length;
@@ -199,7 +221,10 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
     }
 
     // 3. Marketplace listing data is only kept while it's fresh.
-    const removed = db.transaction((tx) => removeStaleListings(tx, now), { behavior: "immediate" });
+    const removed = db.transaction((tx) => {
+      forgetOldSkips(tx, now, settings.skipSuppressionDays);
+      return removeStaleListings(tx, now);
+    }, { behavior: "immediate" });
 
     // 4. One text per scan, not one per listing.
     const text = digestText(digest);
@@ -216,6 +241,7 @@ export async function runScan(db: DB, opts: ScanOptions): Promise<ScanSummary> {
     if (counts.blocked) summaryBits.push(`${counts.blocked} blocked`);
     if (counts.expired) summaryBits.push(`${counts.expired} expired`);
     if (removed) summaryBits.push(`${removed} old listing${removed === 1 ? "" : "s"} cleared`);
+    for (const name of paused) summaryBits.push(`${name} not scanned (daily call limit reached)`);
     logEvent(db, {
       type: "scan",
       actor: "agent",
@@ -249,6 +275,7 @@ function itemFields(item: RawListing) {
     lotSize: item.lotSize,
     shippingCents: item.shippingCents,
     parseIssues: item.parseIssues?.length ? item.parseIssues : null,
+    cautions: item.cautions?.length ? item.cautions : null,
   };
 }
 
@@ -393,6 +420,24 @@ function judge(tx: Queryable, ctx: EvalContext): Step {
       done: true,
       outcome: { kind: "matched", result: "blocked", specId: spec.id, units: 0, totalCents: 0, line: "" },
     };
+  }
+
+  // Someone already said no to this one. Its row may have been cleaned up
+  // since, but the skip is remembered.
+  const skipped = skippedWithin(tx, source.id, listing.externalId, now, getSettings(tx).skipSuppressionDays);
+  if (skipped) {
+    tx.update(listings)
+      .set({
+        status: "rejected",
+        matchedSpecId: spec.id,
+        proposedLots: null,
+        note: `Skipped on ${formatDate(skipped)}, so it wasn't queued again`,
+        decidedBy: "system",
+        decidedAt: now,
+      })
+      .where(eq(listings.id, listing.id))
+      .run();
+    return { done: true, outcome: { kind: "unmatched" } };
   }
 
   const line = `${spec.name}: ${decision.units} @ ${unit}/unit (${formatCents(decision.totalCents)}) from ${source.name}`;

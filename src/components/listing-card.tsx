@@ -101,6 +101,7 @@ export function ListingCard({ item, compact = false }: { item: ListingView; comp
         url={item.url}
         sourceName={item.source.name}
         approveLabel={approveLabel}
+        boughtLate={item.status === "expired" && item.checkoutExpiredAt != null}
       />
     </article>
   );

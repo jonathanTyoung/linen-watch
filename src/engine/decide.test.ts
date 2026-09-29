@@ -17,6 +17,7 @@ const with_ = (patch: {
   source?: Partial<DecideInput["source"]>;
   settings?: Partial<DecideInput["settings"]>;
   unitsOwned?: number;
+  unitsHeld?: number;
   weekSpendCents?: number;
   heldCents?: number;
 }): DecideInput => ({
@@ -36,6 +37,22 @@ describe("planOrder", () => {
 
   it("only buys what's still needed", () => {
     expect(planOrder(with_({ unitsOwned: 100 }))).toMatchObject({ lots: 1, units: 12 });
+  });
+
+  it("counts approved-but-unbought units as already on the way", () => {
+    // Target 120: 60 bought + 36 approved leaves 24, so 2 lots of 12 rather than 4.
+    expect(planOrder(with_({ unitsOwned: 60, unitsHeld: 36 }))).toMatchObject({ lots: 2, units: 24 });
+  });
+
+  it("blocks when bought and approved units already cover the target", () => {
+    expect(planOrder(with_({ unitsOwned: 100, unitsHeld: 24 }))).toEqual({
+      kind: "blocked",
+      note: "Queen flat sheets is fully stocked counting approved buys (100 bought + 24 approved but not bought yet, target 120)",
+    });
+    expect(planOrder(with_({ unitsOwned: 120 }))).toEqual({
+      kind: "blocked",
+      note: "Queen flat sheets is fully stocked (120/120)",
+    });
   });
 
   it("never buys more lots than are available", () => {

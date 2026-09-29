@@ -4,7 +4,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDb, type DB } from "@/db/client";
-import { events, listings, notifications, orders, settings, sources } from "@/db/schema";
+import { events, listings, notifications, orders, settings, sources, specs } from "@/db/schema";
 import { heldCents } from "./holds";
 import { getAdapter } from "./sources";
 import { seeded } from "./sources/mock";
@@ -350,6 +350,119 @@ describe("purchase races", () => {
     await runScan(db, { trigger: "manual", now: new Date(Date.now() + 11 * 60 * 1000) });
     expect(statusOf(a.id)).toBe("expired");
     expect(heldCents(db)).toBe(0);
+  });
+
+  describe("approved units and a spec's target", () => {
+    beforeEach(() => {
+      db.update(settings).set({ weeklyCapCents: 10_000_000, perOrderCapCents: 10_000_000 }).run();
+    });
+
+    it("open approvals can't push a spec past its target", async () => {
+      db.update(specs).set({ targetUnits: 24 }).where(eq(specs.id, 1)).run();
+      const [a, b, c] = ["a", "b", "c"].map((x) => pendingListing("mock-retail", `units-${x}`, 9000));
+      expect((await approveListing(db, a.id, "nick")).ok).toBe(true);
+      expect((await approveListing(db, b.id, "jake")).ok).toBe(true);
+
+      const third = await approveListing(db, c.id, "nick");
+      expect(third.ok).toBe(false);
+      expect(third.message).toMatch(/fully stocked counting approved buys \(0 bought \+ 24 approved but not bought yet, target 24\)/);
+      expect(statusOf(c.id)).toBe("pending");
+
+      // "Didn't buy" frees the units again.
+      rejectListing(db, a.id, "nick");
+      expect((await approveListing(db, c.id, "nick")).ok).toBe(true);
+    });
+
+    it("an approval is sized around what's already approved", async () => {
+      db.update(specs).set({ targetUnits: 36 }).where(eq(specs.id, 1)).run();
+      const a = pendingListing("mock-retail", "units-a", 9000);
+      const b = pendingListing("mock-retail", "units-b", 9000);
+      db.update(listings).set({ lotsAvailable: 5 }).where(eq(listings.id, b.id)).run();
+
+      await approveListing(db, a.id, "nick"); // holds 12 of 36
+      await approveListing(db, b.id, "jake"); // 24 left: 2 lots, not the 3 it would take alone
+      expect(db.select().from(listings).where(eq(listings.id, b.id)).get()?.proposedLots).toBe(2);
+    });
+
+    it("the scan stops queuing for a spec that approved buys already cover", async () => {
+      db.update(specs).set({ targetUnits: 12 }).where(eq(specs.id, 1)).run();
+      const a = pendingListing("mock-retail", "units-a", 9000);
+      await approveListing(db, a.id, "nick");
+
+      await scanMany(12);
+      const queued = db.select().from(listings).where(eq(listings.status, "pending")).all();
+      expect(queued.filter((l) => l.matchedSpecId === 1)).toHaveLength(0);
+      const notes = db.select().from(listings).where(eq(listings.status, "unmatched")).all().map((l) => l.note ?? "");
+      expect(notes.some((n) => /Queen flat sheets is fully stocked counting approved buys/.test(n))).toBe(true);
+    });
+  });
+
+  describe("marking it bought after the approval expired", () => {
+    // A fixed Wednesday, so nothing here straddles Monday's cap reset.
+    const wed = new Date(2026, 8, 16, 12, 0, 0);
+    const at = (h: number) => new Date(wed.getTime() + h * 60 * 60 * 1000);
+
+    beforeEach(() => {
+      db.update(settings).set({ weeklyCapCents: 15000, perOrderCapCents: 15000 }).run();
+      db.update(sources).set({ enabled: false }).run();
+    });
+
+    async function expiredApproval(externalId: string) {
+      const l = pendingListing("mock-retail", externalId, 9000);
+      await approveListing(db, l.id, "nick", { now: wed });
+      await runScan(db, { trigger: "manual", now: at(25) });
+      expect(statusOf(l.id)).toBe("expired");
+      return l;
+    }
+
+    it("records the order and says it was late", async () => {
+      const a = await expiredApproval("late-a");
+      const r = confirmCheckout(db, a.id, "nick", { now: at(26) });
+      expect(r).toEqual({
+        ok: true,
+        message: "Recorded 12 queen flat sheets for $90.00.",
+        warning: "Recorded after the approval expired. This week is at $90.00, still within the $150.00 cap.",
+      });
+      expect(statusOf(a.id)).toBe("purchased");
+      expect(db.select().from(orders).where(eq(orders.listingId, a.id)).get()).toMatchObject({
+        totalCents: 9000,
+        mode: "manual_checkout",
+        placedBy: "nick",
+      });
+      expect(db.select().from(events).where(eq(events.listingId, a.id)).all().at(-1)?.message).toBe(
+        "Nick bought 12 queen flat sheets for $90.00 on Big-box retailer (mock). Recorded after the approval expired. This week is at $90.00, still within the $150.00 cap.",
+      );
+      // Once only.
+      expect(confirmCheckout(db, a.id, "jake", { now: at(27) }).ok).toBe(false);
+    });
+
+    it("records it even when that goes past the weekly cap, and says so", async () => {
+      const a = await expiredApproval("late-a");
+      // The freed-up cap got used by another buy in the meantime.
+      const b = pendingListing("mock-retail", "late-b", 9000);
+      expect((await approveListing(db, b.id, "jake", { now: at(26) })).ok).toBe(true);
+      expect(confirmCheckout(db, b.id, "jake", { now: at(27) }).ok).toBe(true);
+
+      const r = confirmCheckout(db, a.id, "nick", { now: at(28) });
+      expect(r.ok).toBe(true);
+      expect(r.ok && r.warning).toBe(
+        "Recorded after the approval expired. That puts this week at $180.00, over the $150.00 cap.",
+      );
+      expect(weekSpendCents(db, at(28))).toBe(18000);
+      expect(db.select().from(events).where(eq(events.listingId, a.id)).all().at(-1)?.message).toMatch(
+        /Recorded after the approval expired\. That puts this week at \$180\.00, over the \$150\.00 cap\./,
+      );
+    });
+
+    it("isn't offered for listings that expired some other way", async () => {
+      const l = pendingListing("mock-retail", "late-c", 9000);
+      db.update(listings).set({ status: "expired" }).where(eq(listings.id, l.id)).run();
+      expect(confirmCheckout(db, l.id, "nick")).toEqual({
+        ok: false,
+        message: "This listing isn't waiting on checkout.",
+      });
+      expect(db.select().from(orders).all()).toHaveLength(0);
+    });
   });
 
   describe("across two connections (the worker and the web app)", () => {

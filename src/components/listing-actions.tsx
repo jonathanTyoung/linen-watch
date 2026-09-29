@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { approve, markPurchased, reject } from "@/app/actions";
 import { btn, cx } from "./ui";
 
-type Result = { ok: boolean; message: string } | null;
+type Result = { ok: boolean; message: string; warning?: string } | null;
 
 export function ListingActions({
   listingId,
@@ -12,18 +12,21 @@ export function ListingActions({
   url,
   sourceName,
   approveLabel,
+  boughtLate = false,
 }: {
   listingId: number;
   status: string;
   url: string;
   sourceName: string;
   approveLabel: string;
+  /** The approval expired before anyone marked it bought. They may have bought it anyway. */
+  boughtLate?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [which, setWhich] = useState<string | null>(null);
   const [result, setResult] = useState<Result>(null);
 
-  const run = (name: string, fn: () => Promise<{ ok: boolean; message: string }>) => {
+  const run = (name: string, fn: () => Promise<NonNullable<Result>>) => {
     setWhich(name);
     startTransition(async () => {
       setResult(await fn());
@@ -85,14 +88,40 @@ export function ListingActions({
     );
   }
 
-  return null;
+  if (boughtLate) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+          <a href={url} target="_blank" rel="noreferrer" className={cx(btn.base, btn.secondary)}>
+            Open on {sourceName.replace(/ \(mock\)$/, "")} ↗
+          </a>
+          <button
+            type="button"
+            className={cx(btn.base, btn.secondary)}
+            disabled={pending}
+            onClick={() => run("bought", () => markPurchased(listingId))}
+          >
+            I bought it
+          </button>
+        </div>
+        <p className="text-xs text-muted">
+          Bought it anyway? Mark it so the spend is counted, even if it goes over the weekly cap.
+        </p>
+        <Feedback result={result} />
+      </div>
+    );
+  }
+
+  // Keep showing what happened after the listing moves on (e.g. a late "I bought it").
+  return <Feedback result={result} />;
 }
 
 function Feedback({ result }: { result: Result }) {
   if (!result) return null;
   return (
-    <p role="status" className={cx("text-xs", result.ok ? "text-good" : "text-danger")}>
-      {result.message}
-    </p>
+    <div role="status" className="flex flex-col gap-1 text-xs">
+      <p className={result.ok ? "text-good" : "text-danger"}>{result.message}</p>
+      {result.warning ? <p className="text-warn">{result.warning}</p> : null}
+    </div>
   );
 }

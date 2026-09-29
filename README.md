@@ -55,6 +55,8 @@ runScan ──► each enabled source adapter ──► listings (upserted by so
 - **Auto-buy only happens when all of these are true:** auto-buy is on, buying isn't paused, the source has an ordering API, that source has been trusted for auto-buy, and the order fits the weekly cap. Anything else goes to the queue with the reason.
 - **Approvals re-check the guardrails** at the moment someone taps Approve, since spend may have changed since the listing was queued.
 - **Approving claims the listing first.** The check and the claim are one database write, so two people tapping Approve on the same listing place one order, not two.
+- **Promised units count toward a spec's target** the same way, so open approvals can't push a spec past what Nick wants on hand.
+- **"I bought it" still works after an approval expires.** The money is already spent, so the order is recorded even if it goes past the weekly cap, with a warning and a line in the activity feed.
 - **Promised money counts against the weekly cap.** An order being placed, or an approved buy waiting on someone to check out, holds its total until it's bought, marked "Didn't buy", fails, or expires (24 hours by default, set in Settings). Two approvals can't squeeze past the cap together, and the agent's auto-buy sees the same holds.
 - **Pending matches expire** after the configured window (listings sell).
 - Worker and web app are separate processes sharing one SQLite file (WAL mode). A lock row keeps two scans from overlapping.
@@ -94,3 +96,4 @@ The app applies pending migrations on next boot. Don't hand-edit the database.
 - **Notifications:** swap the mock outbox for Twilio SMS / email.
 - **Hosting:** web app on Vercel; the worker as a small always-on process (Railway, Render or a VPS), not a serverless function.
 - **Payment:** a dedicated card with its own limit for any source that auto-buys.
+- **Interrupted orders (before any auto-ordering source goes live):** if the app crashes or the connection drops while an order is being placed with a supplier's API, we can't tell whether it went through, and an order that did go through is never recorded. Today the listing is marked expired with a note to check the supplier. Before a real `api` source is switched on, every order needs an idempotency key sent to the supplier, plus a reconcile step that asks the supplier what happened to any order left mid-flight.

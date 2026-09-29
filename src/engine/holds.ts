@@ -30,6 +30,20 @@ export function heldCents(db: Queryable): number {
   return row?.total ?? 0;
 }
 
+/** Units in held listings, per spec id. They count toward a spec's target like bought units. */
+export function unitsHeldBySpec(db: Queryable): Map<number, number> {
+  const rows = db
+    .select({
+      specId: listings.matchedSpecId,
+      units: sql<number>`sum(coalesce(${listings.proposedLots}, 1) * ${listings.lotSize})`,
+    })
+    .from(listings)
+    .where(inArray(listings.status, HOLD_STATUSES))
+    .groupBy(listings.matchedSpecId)
+    .all();
+  return new Map(rows.flatMap((r) => (r.specId == null ? [] : [[r.specId, r.units] as const])));
+}
+
 /**
  * Let go of holds nobody is going to finish. Runs at the start of every scan
  * and before every approval, so a forgotten approval can't tie up the cap.
@@ -43,9 +57,10 @@ export function releaseStaleHolds(db: Queryable, now: Date): number {
     .update(listings)
     .set({
       status: "expired",
-      note: `Approved but not marked bought within ${hours}, so it no longer counts against the weekly cap`,
+      note: `Approved but not marked bought within ${hours}, so it no longer counts against the weekly cap. If you did buy it, mark it bought`,
       decidedBy: "system",
       decidedAt: now,
+      checkoutExpiredAt: now,
     })
     .where(
       and(

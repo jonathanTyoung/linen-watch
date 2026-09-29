@@ -3,12 +3,15 @@ import type { DB, Queryable } from "@/db/client";
 import { listings, orders, sources, specs, type Listing, type Source, type Spec } from "@/db/schema";
 import { actorLabel, type Person } from "@/lib/catalog";
 import { formatCents } from "@/lib/money";
-import { approvalBlocker, orderCost, planOrder, type OrderSize } from "./decide";
-import { heldCents, interruptedNote, releaseStaleHolds } from "./holds";
+import { approvalBlocker, heldNote, orderCost, planOrder, type OrderSize } from "./decide";
+import { heldCents, interruptedNote, releaseStaleHolds, unitsHeldBySpec } from "./holds";
 import { getSettings, logEvent, unitsOwnedBySpec, weekSpendCents } from "./queries";
 import { getAdapter, type OrderResult } from "./sources";
 
-export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
+export type ActionResult =
+  /** `warning` is for things that worked but the person should know about. */
+  | { ok: true; message: string; warning?: string }
+  | { ok: false; message: string };
 
 const HANDLED = "Someone already handled this listing.";
 
@@ -63,6 +66,7 @@ export async function approveListing(
       spec,
       settings,
       unitsOwned: unitsOwnedBySpec(tx).get(spec.id) ?? 0,
+      unitsHeld: unitsHeldBySpec(tx).get(spec.id) ?? 0,
       weekSpendCents: weekSpend,
       heldCents: held,
     });
@@ -253,13 +257,24 @@ export function rejectListing(db: DB, listingId: number, actor: Person): ActionR
  * The person finished checkout on a site without an ordering API. The money
  * was already held against the weekly cap when they approved; this turns the
  * hold into an order for the same amount.
+ *
+ * It also works after the approval expired. By then the hold is gone and the
+ * cap may have been used by something else, but the money is already spent,
+ * so the order is recorded regardless and the result says where the week stands.
  */
-export function confirmCheckout(db: DB, listingId: number, actor: Person): ActionResult {
+export function confirmCheckout(
+  db: DB,
+  listingId: number,
+  actor: Person,
+  opts: { now?: Date } = {},
+): ActionResult {
+  const now = opts.now ?? new Date();
   return db.transaction((tx): ActionResult => {
     const loaded = load(tx, listingId);
     if (!loaded) return { ok: false, message: "That listing no longer exists." };
     const { listing, source, spec } = loaded;
-    if (listing.status !== "awaiting_checkout") {
+    const late = canMarkBoughtLate(listing);
+    if (listing.status !== "awaiting_checkout" && !late) {
       return { ok: false, message: "This listing isn't waiting on checkout." };
     }
     const size = orderCost(listing, listing.proposedLots ?? 1);
@@ -267,8 +282,13 @@ export function confirmCheckout(db: DB, listingId: number, actor: Person): Actio
 
     const changed = tx
       .update(listings)
-      .set({ status: "purchased", note: `${who} checked out on ${source.name}`, decidedBy: actor, decidedAt: new Date() })
-      .where(and(eq(listings.id, listing.id), eq(listings.status, "awaiting_checkout")))
+      .set({
+        status: "purchased",
+        note: `${who} checked out on ${source.name}${late ? ", marked bought after the approval expired" : ""}`,
+        decidedBy: actor,
+        decidedAt: now,
+      })
+      .where(and(eq(listings.id, listing.id), eq(listings.status, listing.status)))
       .run().changes;
     if (changed !== 1) return { ok: false, message: "This listing isn't waiting on checkout." };
 
@@ -285,17 +305,36 @@ export function confirmCheckout(db: DB, listingId: number, actor: Person): Actio
         totalCents: size.totalCents,
         mode: "manual_checkout",
         placedBy: actor,
+        createdAt: now,
       })
       .returning({ id: orders.id })
       .get();
+
+    const bought = `${size.units} ${spec.name.toLowerCase()} for ${formatCents(size.totalCents)}`;
+    let warning: string | undefined;
+    if (late) {
+      const { weeklyCapCents } = getSettings(tx);
+      const held = heldCents(tx);
+      const week = weekSpendCents(tx, now) + held;
+      const standing =
+        week > weeklyCapCents
+          ? `That puts this week at ${formatCents(week)}${heldNote(held)}, over the ${formatCents(weeklyCapCents)} cap`
+          : `This week is at ${formatCents(week)}${heldNote(held)}, still within the ${formatCents(weeklyCapCents)} cap`;
+      warning = `Recorded after the approval expired. ${standing}.`;
+    }
 
     logEvent(tx, {
       type: "purchased",
       actor,
       listingId: listing.id,
       orderId: order.id,
-      message: `${who} bought ${size.units} ${spec.name.toLowerCase()} for ${formatCents(size.totalCents)} on ${source.name}`,
+      message: `${who} bought ${bought} on ${source.name}${warning ? `. ${warning}` : ""}`,
     });
-    return { ok: true, message: `Recorded ${size.units} ${spec.name.toLowerCase()} for ${formatCents(size.totalCents)}.` };
+    return { ok: true, message: `Recorded ${bought}.`, warning };
   }, { behavior: "immediate" });
+}
+
+/** An approved buy that expired unbought can still be marked bought: the person may have bought it anyway. */
+export function canMarkBoughtLate(listing: Pick<Listing, "status" | "checkoutExpiredAt">): boolean {
+  return listing.status === "expired" && listing.checkoutExpiredAt != null;
 }

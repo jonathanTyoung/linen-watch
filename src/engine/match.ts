@@ -1,5 +1,6 @@
 import { CATEGORIES, CONDITIONS, MATERIALS, SIZES, label } from "@/lib/catalog";
 import { formatCents, landedUnitCents } from "@/lib/money";
+import { stockedNote } from "./decide";
 
 /** The fields matching needs. Both DB rows and raw listings satisfy these. */
 export interface ListingLike {
@@ -72,13 +73,15 @@ function describeItem(listing: ListingLike): string {
 
 /**
  * Find the spec this listing satisfies. `unitsOwned` is units already bought
- * per spec id; a spec that has hit its target no longer takes matches.
+ * per spec id, `unitsHeld` is units approved but not bought yet; a spec that
+ * has hit its target counting both no longer takes matches.
  * On a miss, explain the closest spec's failures so specs are easy to tune.
  */
 export function findMatch<S extends SpecLike>(
   listing: ListingLike,
   specs: S[],
   unitsOwned: Map<number, number>,
+  unitsHeld: Map<number, number> = new Map(),
 ): MatchResult<S> {
   const candidates = specs.filter((s) => s.active && sameItem(listing, s));
   if (candidates.length === 0) {
@@ -92,7 +95,7 @@ export function findMatch<S extends SpecLike>(
     const failures = specFailures(listing, spec);
     if (failures.length === 0) {
       const owned = unitsOwned.get(spec.id) ?? 0;
-      if (owned >= spec.targetUnits) {
+      if (owned + (unitsHeld.get(spec.id) ?? 0) >= spec.targetUnits) {
         fullyStocked = spec;
         continue;
       }
@@ -109,9 +112,10 @@ export function findMatch<S extends SpecLike>(
 
   if (fullyStocked) {
     const owned = unitsOwned.get(fullyStocked.id) ?? 0;
+    const held = unitsHeld.get(fullyStocked.id) ?? 0;
     return {
       kind: "no_match",
-      reason: `${fullyStocked.name} is fully stocked (${owned}/${fullyStocked.targetUnits})`,
+      reason: `${fullyStocked.name} is ${stockedNote(fullyStocked.targetUnits, owned, held)}`,
     };
   }
 

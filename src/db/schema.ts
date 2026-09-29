@@ -93,6 +93,11 @@ export const listings = sqliteTable(
     note: text("note"),
     decidedBy: text("decided_by"), // nick | jake | agent
     decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
+    /**
+     * Set when an approved buy expired before anyone marked it bought. The
+     * person may still have bought it, so "I bought it" stays available.
+     */
+    checkoutExpiredAt: integer("checkout_expired_at", { mode: "timestamp_ms" }),
     firstSeenAt: integer("first_seen_at", { mode: "timestamp_ms" }).notNull(),
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }).notNull(),
   },

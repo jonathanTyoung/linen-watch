@@ -30,6 +30,8 @@ export interface DecideInput {
     perOrderCapCents: number;
   };
   unitsOwned: number;
+  /** Units in orders being placed or approved and waiting on checkout. Count toward the target like owned units. */
+  unitsHeld?: number;
   weekSpendCents: number;
   /**
    * Money already promised but not yet an order: orders being placed right
@@ -66,6 +68,13 @@ export function orderCost(
   };
 }
 
+/** "fully stocked (120/120)", spelling out approved-but-unbought units when there are any. */
+export function stockedNote(targetUnits: number, unitsOwned: number, unitsHeld: number): string {
+  return unitsHeld > 0
+    ? `fully stocked counting approved buys (${unitsOwned} bought + ${unitsHeld} approved but not bought yet, target ${targetUnits})`
+    : `fully stocked (${unitsOwned}/${targetUnits})`;
+}
+
 export type OrderPlan =
   | { kind: "blocked"; note: string }
   | ({ kind: "ok"; overWeeklyCap: boolean } & OrderSize);
@@ -76,7 +85,7 @@ export type OrderPlan =
  * the weekly cap when possible. Says "blocked" when no order can ever work.
  */
 export function planOrder(input: Omit<DecideInput, "source">): OrderPlan {
-  const { listing, spec, settings, unitsOwned, weekSpendCents, heldCents = 0 } = input;
+  const { listing, spec, settings, unitsOwned, unitsHeld = 0, weekSpendCents, heldCents = 0 } = input;
 
   if (listing.lotSize > spec.maxUnitsPerOrder) {
     return {
@@ -85,7 +94,10 @@ export function planOrder(input: Omit<DecideInput, "source">): OrderPlan {
     };
   }
 
-  const remaining = Math.max(0, spec.targetUnits - unitsOwned);
+  const remaining = Math.max(0, spec.targetUnits - unitsOwned - unitsHeld);
+  if (remaining === 0) {
+    return { kind: "blocked", note: `${spec.name} is ${stockedNote(spec.targetUnits, unitsOwned, unitsHeld)}` };
+  }
   const unitBudget = Math.min(remaining, spec.maxUnitsPerOrder);
   let lots = Math.min(listing.lotsAvailable, Math.max(1, Math.floor(unitBudget / listing.lotSize)));
 
@@ -104,7 +116,7 @@ export function planOrder(input: Omit<DecideInput, "source">): OrderPlan {
 }
 
 /** Explains where the extra money in a cap message comes from. Empty when nothing is held. */
-function heldNote(heldCents: number): string {
+export function heldNote(heldCents: number): string {
   return heldCents > 0 ? ` (counting ${formatCents(heldCents)} already approved but not bought yet)` : "";
 }
 

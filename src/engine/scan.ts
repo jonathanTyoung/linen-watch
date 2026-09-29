@@ -14,7 +14,7 @@ import {
 } from "@/db/schema";
 import { formatCents, landedUnitCents } from "@/lib/money";
 import { decide, type OrderSize } from "./decide";
-import { heldCents, releaseStaleHolds } from "./holds";
+import { heldCents, releaseStaleHolds, unitsHeldBySpec } from "./holds";
 import { findMatch } from "./match";
 import { placeClaimedOrder } from "./purchasing";
 import { getSettings, logEvent, unitsOwnedBySpec, weekSpendCents } from "./queries";
@@ -276,7 +276,9 @@ type Step =
  */
 function judge(tx: Queryable, ctx: EvalContext): Step {
   const { listing, source, now } = ctx;
-  const match = findMatch(listing, ctx.specs, unitsOwnedBySpec(tx));
+  const owned = unitsOwnedBySpec(tx);
+  const held = unitsHeldBySpec(tx);
+  const match = findMatch(listing, ctx.specs, owned, held);
 
   if (match.kind === "no_match") {
     tx.update(listings)
@@ -292,7 +294,8 @@ function judge(tx: Queryable, ctx: EvalContext): Step {
     spec,
     source,
     settings: getSettings(tx),
-    unitsOwned: unitsOwnedBySpec(tx).get(spec.id) ?? 0,
+    unitsOwned: owned.get(spec.id) ?? 0,
+    unitsHeld: held.get(spec.id) ?? 0,
     weekSpendCents: weekSpendCents(tx, now),
     heldCents: heldCents(tx),
   });

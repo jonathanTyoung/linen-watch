@@ -109,4 +109,14 @@ describe("findMatch", () => {
     const r = findMatch(goodSheet, [queenFlat], new Map([[1, 120]]));
     expect(r).toEqual({ kind: "no_match", reason: "Queen flat sheets is fully stocked (120/120)" });
   });
+
+  it("counts approved-but-unbought units toward the target", () => {
+    const owned = new Map([[1, 96]]);
+    expect(findMatch(goodSheet, [queenFlat], owned, new Map([[1, 12]])).kind).toBe("match");
+    expect(findMatch(goodSheet, [queenFlat], owned, new Map([[1, 24]]))).toEqual({
+      kind: "no_match",
+      reason:
+        "Queen flat sheets is fully stocked counting approved buys (96 bought + 24 approved but not bought yet, target 120)",
+    });
+  });
 });
